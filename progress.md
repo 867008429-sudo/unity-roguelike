@@ -260,4 +260,5 @@
 - 检查未发现超过 90MB 的待提交单文件。
 - 创建初始提交 `035da4c Initial Unity project baseline`，包含 `Assets/`、`Packages/`、`ProjectSettings/`、规划文件和 `.gitignore`。
 - 将默认分支改名为 `main`。
-- 当前尚未设置 GitHub 远端；用户提供了账号页 `https://github.com/867008429-sudo`，后续需要具体仓库 URL 后再执行 `git remote add origin ...` 和 `git push -u origin main`。
+- 已设置 GitHub 远端 `origin = https://github.com/867008429-sudo/unity-roguelike.git`。
+- 已成功推送 `main` 分支，并建立本地 `main` 对 `origin/main` 的 upstream 跟踪。
