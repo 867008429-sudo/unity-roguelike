@@ -70,6 +70,17 @@ public class UIManager : MonoBehaviour
     private Text relicHintText;
     private Text[] relicOptionTexts;
     private UpgradeChoice[] activeRelicChoices;
+    private GameObject shopPanel;
+    private Text shopHeaderText;
+    private Text shopGoldText;
+    private Text shopHintText;
+    private Text[] shopItemTexts;
+    private Button[] shopItemButtons;
+    private Image[] shopItemImages;
+    private ShopItemInteractable[] activeShopItems;
+    private bool shopPanelPaused;
+    private GameObject shopPurchaseStatusRoot;
+    private int shopPurchaseStatusCount;
     private bool awaitingUpgradeChoice;
     private bool awaitingRelicChoice;
     private bool upgradeChoicePaused;
@@ -112,7 +123,16 @@ public class UIManager : MonoBehaviour
             InitializeOnce();
         }
 
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (IsShopPanelOpen())
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseShopPanel();
+            }
+
+            HandleShopHotkeys();
+        }
+        else if (Input.GetKeyDown(KeyCode.Escape))
         {
             TogglePausePanel();
         }
@@ -287,6 +307,7 @@ public class UIManager : MonoBehaviour
         CreateUpgradePanel();
         CreateUpgradeReadyPrompt();
         CreateRelicPanel();
+        CreateShopPanel();
         CreateControlsHelpPanel();
         HideBuildPanel();
         UITheme.ApplyToCanvas(mainCanvas);
@@ -325,6 +346,8 @@ public class UIManager : MonoBehaviour
             goldText.text = gold.ToString();
             StartCoroutine(GoldPop());
         }
+
+        UpdateShopPanel();
     }
 
     public void ShowWaveNotification(string message)
@@ -610,6 +633,8 @@ public class UIManager : MonoBehaviour
     {
         awaitingUpgradeChoice = false;
         awaitingRelicChoice = false;
+        activeShopItems = null;
+        shopPanelPaused = false;
         pendingUpgradeChoices = 0;
         pendingRelicChoices = 0;
         upgradeChoicePaused = false;
@@ -626,6 +651,10 @@ public class UIManager : MonoBehaviour
         if (relicPanel != null)
         {
             relicPanel.SetActive(false);
+        }
+        if (shopPanel != null)
+        {
+            shopPanel.SetActive(false);
         }
 
         Time.timeScale = 1f;
@@ -742,6 +771,242 @@ public class UIManager : MonoBehaviour
         }
 
         relicPanel.SetActive(false);
+    }
+
+    private void CreateShopPanel()
+    {
+        if (mainCanvas == null || shopPanel != null)
+        {
+            return;
+        }
+
+        shopPanel = CreatePanel("ShopPanel", mainCanvas.transform, new Vector2(780f, 500f), UITheme.PanelTint);
+        shopHeaderText = CreateText(shopPanel.transform, "神秘商店", 32, new Vector2(0f, 204f), new Vector2(620f, 44f), TextAnchor.MiddleCenter, UITheme.TitleColor);
+        shopGoldText = CreateText(shopPanel.transform, "当前金币：0", 20, new Vector2(-234f, 160f), new Vector2(260f, 30f), TextAnchor.MiddleLeft, UITheme.GoldColor);
+        shopHintText = CreateText(shopPanel.transform, "点击商品购买，也可以按 1 / 2 / 3。Esc 关闭", 17, new Vector2(0f, -214f), new Vector2(610f, 30f), TextAnchor.MiddleCenter, UITheme.HintColor);
+
+        shopItemTexts = new Text[6];
+        shopItemButtons = new Button[6];
+        shopItemImages = new Image[6];
+        for (int i = 0; i < shopItemTexts.Length; i++)
+        {
+            int choiceIndex = i;
+            GameObject row = CreatePanel("ShopItem_" + i, shopPanel.transform, new Vector2(690f, 56f), UITheme.OptionTint);
+            row.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, 112f - i * 62f);
+            Image image = row.GetComponent<Image>();
+            image.raycastTarget = true;
+            shopItemImages[i] = image;
+            shopItemButtons[i] = row.AddComponent<Button>();
+            shopItemButtons[i].targetGraphic = image;
+            shopItemButtons[i].onClick.AddListener(() => TryPurchaseShopItem(choiceIndex));
+            CreateChoiceBadge(row.transform, i + 1);
+            shopItemTexts[i] = CreateText(row.transform, string.Empty, 18, new Vector2(40f, 0f), new Vector2(590f, 48f), TextAnchor.MiddleLeft, UITheme.BodyColor);
+            ConfigureChoiceText(shopItemTexts[i]);
+        }
+
+        CreateShopCloseButton();
+        shopPanel.SetActive(false);
+    }
+
+    private void CreateShopCloseButton()
+    {
+        GameObject obj = new GameObject("ShopCloseButton");
+        obj.transform.SetParent(shopPanel.transform, false);
+        RectTransform rect = obj.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(1f, 1f);
+        rect.anchoredPosition = new Vector2(-22f, -18f);
+        rect.sizeDelta = new Vector2(104f, 40f);
+
+        Image image = obj.AddComponent<Image>();
+        Button button = obj.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.onClick.AddListener(CloseShopPanel);
+        Text label = CreateText(obj.transform, "关闭", 18, Vector2.zero, new Vector2(86f, 30f), TextAnchor.MiddleCenter, UITheme.BodyColor);
+        UITheme.ApplyButton(image, label, UIButtonStyle.Ghost, true);
+    }
+
+    public void OpenShopPanel(ShopItemInteractable[] items, ShopItemInteractable source)
+    {
+        InitializeOnce();
+        CreateShopPanel();
+        if (shopPanel == null)
+        {
+            return;
+        }
+
+        if (playerStats == null)
+        {
+            playerStats = FindObjectOfType<PlayerStats>();
+        }
+
+        if (playerController == null)
+        {
+            playerController = FindObjectOfType<PlayerController>();
+        }
+
+        activeShopItems = NormalizeShopItems(items, source);
+        if (shopHeaderText != null)
+        {
+            shopHeaderText.text = source != null ? source.shopTitle : "神秘商店";
+        }
+
+        UpdateShopPanel();
+        OpenChoiceModal(shopPanel, ref shopPanelPaused);
+    }
+
+    public void CloseShopPanel()
+    {
+        if (shopPanel == null || !shopPanel.activeInHierarchy)
+        {
+            return;
+        }
+
+        CloseChoiceModal(shopPanel, ref shopPanelPaused, false);
+        activeShopItems = null;
+        UpdateUpgradeReadyPrompt();
+    }
+
+    private ShopItemInteractable[] NormalizeShopItems(ShopItemInteractable[] items, ShopItemInteractable source)
+    {
+        List<ShopItemInteractable> result = new List<ShopItemInteractable>();
+        if (items != null)
+        {
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (items[i] != null && !result.Contains(items[i]))
+                {
+                    result.Add(items[i]);
+                }
+            }
+        }
+
+        if (result.Count == 0 && source != null)
+        {
+            result.Add(source);
+        }
+
+        return result.ToArray();
+    }
+
+    private bool IsShopPanelOpen()
+    {
+        return shopPanel != null && shopPanel.activeInHierarchy;
+    }
+
+    private void HandleShopHotkeys()
+    {
+        if (!IsShopPanelOpen())
+        {
+            return;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
+        {
+            TryPurchaseShopItem(0);
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
+        {
+            TryPurchaseShopItem(1);
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3))
+        {
+            TryPurchaseShopItem(2);
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4))
+        {
+            TryPurchaseShopItem(3);
+        }
+    }
+
+    private void TryPurchaseShopItem(int index)
+    {
+        if (activeShopItems == null || index < 0 || index >= activeShopItems.Length)
+        {
+            return;
+        }
+
+        ShopItemInteractable item = activeShopItems[index];
+        if (item == null || item.IsSold)
+        {
+            UpdateShopPanel();
+            return;
+        }
+
+        bool purchased = item.TryPurchase(playerStats, playerController, true);
+        if (purchased)
+        {
+            AddShopPurchaseStatus(item.DisplayName, item.RewardType);
+        }
+
+        UpdateShopPanel();
+    }
+
+    private void UpdateShopPanel()
+    {
+        if (shopPanel == null || shopItemTexts == null)
+        {
+            return;
+        }
+
+        if (shopGoldText != null)
+        {
+            int gold = playerStats != null ? playerStats.gold : 0;
+            shopGoldText.text = "当前金币：" + gold;
+        }
+
+        for (int i = 0; i < shopItemTexts.Length; i++)
+        {
+            ShopItemInteractable item = activeShopItems != null && i < activeShopItems.Length ? activeShopItems[i] : null;
+            bool hasItem = item != null;
+            bool sold = hasItem && item.IsSold;
+            bool affordable = hasItem && playerStats != null && playerStats.gold >= item.Price;
+
+            if (shopItemTexts[i] != null)
+            {
+                if (!hasItem)
+                {
+                    shopItemTexts[i].text = "";
+                }
+                else
+                {
+                    string state = sold ? "已售罄" : (affordable ? "可购买" : "金币不足");
+                    shopItemTexts[i].text = "<b>" + (i + 1) + ". " + item.DisplayName + "</b>  " + item.Price + "金币  <color=#FFD866>" + state + "</color>\n" + item.Description;
+                }
+            }
+
+            if (shopItemButtons != null && shopItemButtons[i] != null)
+            {
+                shopItemButtons[i].interactable = hasItem && !sold;
+                shopItemButtons[i].gameObject.SetActive(hasItem);
+            }
+
+            if (shopItemImages != null && shopItemImages[i] != null)
+            {
+                if (!hasItem)
+                {
+                    shopItemImages[i].color = new Color(0f, 0f, 0f, 0f);
+                }
+                else if (sold)
+                {
+                    shopItemImages[i].color = new Color(0.12f, 0.12f, 0.13f, 0.72f);
+                }
+                else if (affordable)
+                {
+                    shopItemImages[i].color = new Color(0.12f, 0.15f, 0.14f, 0.96f);
+                }
+                else
+                {
+                    shopItemImages[i].color = new Color(0.16f, 0.10f, 0.08f, 0.92f);
+                }
+            }
+        }
+
+        if (shopHintText != null)
+        {
+            shopHintText.text = "点击商品购买，也可以按 1 / 2 / 3。Esc 关闭";
+        }
     }
 
     private void ConfigureChoiceText(Text text)
@@ -1358,8 +1623,85 @@ public class UIManager : MonoBehaviour
         hudGoldText = CreateHudTMPText(goldHud.transform, "0", 20f, new Vector2(88f, 0f), new Vector2(160f, 24f), TextAlignmentOptions.MidlineRight, new Color(1f, 0.88f, 0.34f), true);
         UITheme.ApplyHudGoldEmphasis(hudGoldText);
 
+        EnsureShopPurchaseStatusRoot();
+
         hudGroup.alpha = 0f;
         UIAnimationUtility.FadeIn(hudGroup, 0.2f);
+    }
+
+    private void EnsureShopPurchaseStatusRoot()
+    {
+        if (mainCanvas == null || shopPurchaseStatusRoot != null)
+        {
+            return;
+        }
+
+        shopPurchaseStatusRoot = CreatePanel("ShopPurchaseStatusRoot", mainCanvas.transform, new Vector2(268f, 154f), new Color(0.05f, 0.055f, 0.065f, 0.9f));
+        RectTransform rect = shopPurchaseStatusRoot.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(388f, -16f);
+        rect.sizeDelta = new Vector2(268f, 154f);
+
+        CreateText(shopPurchaseStatusRoot.transform, "已购", 18, new Vector2(-98f, 58f), new Vector2(58f, 24f), TextAnchor.MiddleLeft, UITheme.TitleColor);
+        shopPurchaseStatusRoot.SetActive(false);
+    }
+
+    public void AddShopPurchaseStatus(string itemName, ShopItemRewardType rewardType)
+    {
+        EnsureShopPurchaseStatusRoot();
+        if (shopPurchaseStatusRoot == null)
+        {
+            return;
+        }
+
+        shopPurchaseStatusRoot.SetActive(true);
+        int visibleIndex = shopPurchaseStatusCount % 4;
+        string chipName = "ShopPurchaseChip_" + visibleIndex;
+        Transform existing = shopPurchaseStatusRoot.transform.Find(chipName);
+        GameObject chip = existing != null ? existing.gameObject : CreateUIBlock(chipName, shopPurchaseStatusRoot.transform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(230f, 26f), GetShopRewardColor(rewardType));
+        chip.name = chipName;
+        RectTransform rect = chip.GetComponent<RectTransform>();
+        rect.anchoredPosition = new Vector2(0f, 26f - visibleIndex * 31f);
+        Image image = chip.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = GetShopRewardColor(rewardType);
+            image.sprite = UITheme.PanelSprite;
+            image.type = Image.Type.Sliced;
+        }
+
+        Text label = chip.GetComponentInChildren<Text>();
+        if (label == null)
+        {
+            label = CreateText(chip.transform, string.Empty, 14, Vector2.zero, new Vector2(214f, 22f), TextAnchor.MiddleLeft, UITheme.BodyColor);
+        }
+
+        label.text = "已购 " + itemName;
+        shopPurchaseStatusCount++;
+        UIAnimationUtility.PopIn(chip.GetComponent<RectTransform>(), GetOrAddCanvasGroup(chip));
+    }
+
+    private Color GetShopRewardColor(ShopItemRewardType rewardType)
+    {
+        switch (rewardType)
+        {
+            case ShopItemRewardType.HealthPotion:
+                return new Color(0.20f, 0.42f, 0.28f, 0.96f);
+            case ShopItemRewardType.CritAssassinSigil:
+                return new Color(0.32f, 0.25f, 0.10f, 0.96f);
+            case ShopItemRewardType.BurnInfernoSigil:
+                return new Color(0.38f, 0.13f, 0.08f, 0.96f);
+            case ShopItemRewardType.LightningThunderCrown:
+                return new Color(0.13f, 0.25f, 0.40f, 0.96f);
+            case ShopItemRewardType.WindBoots:
+                return new Color(0.13f, 0.30f, 0.32f, 0.96f);
+            case ShopItemRewardType.LifeStealSigil:
+                return new Color(0.32f, 0.12f, 0.20f, 0.96f);
+            default:
+                return new Color(0.18f, 0.18f, 0.22f, 0.96f);
+        }
     }
 
     private void CreateHudIcon(Transform parent, string text, Vector2 position, Color color)

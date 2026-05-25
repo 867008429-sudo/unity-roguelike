@@ -469,3 +469,10 @@
   - 金币充足分支：玩家金币 `100 -> 65`，`ShopItem_AttackBlessing.CanInteract=False`，已售罄不可重复购买。
   - Console Error 为 0。
   - 退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。
+### 商店界面化购买与已购状态栏
+- 根据用户反馈“当前不知道买了什么”，将商店从直接 E 扣款改成 E 打开商店面板，再由玩家在面板中选择购买。
+- 更新 `Assets/_Scripts/Interaction/ShopItemInteractable.cs`：商品保留 `IInteractable` 与原有奖励/扣款逻辑；`Interact()` 优先调用 `UIManager.OpenShopPanel(...)`；自动收集同一摊位父节点下的兄弟商品；新增商品说明、售价/售罄状态公开属性，以及 `TryPurchase(...)` 供 UI 调用。
+- 更新 `Assets/_Scripts/UIManager.cs`：新增暂停式 `ShopPanel`，显示当前金币、商品名称、价格、说明、可购买/金币不足/已售罄状态；支持点击商品或数字键 1/2/3/4 购买，Esc 关闭商店；购买成功后在 `ModernHudRoot` 右侧新增 `ShopPurchaseStatusRoot`，显示“已购 + 商品名”。
+- 更新 `Assets/_Scripts/UI/InteractableHint.cs`：World Space 交互提示从 TMP 改为 legacy `Text` + `UITheme.GameFont`，避免中文提示被 MedievalSharp TMP 字体替换成方块并刷 warning。
+- 静态检查：`ShopItemInteractable.cs` 大括号 40/40，`UIManager.cs` 大括号 322/322，`InteractableHint.cs` 大括号 38/38。
+- UnityMCP/Play Mode QA：刷新编译后 Console Error 为 0；进入 `QA_Sandbox` Play Mode 后商品数为 3；调用商品交互后商店面板打开且 `Time.timeScale=0`；金币不足分支 `0 -> 0` 且商品未售出；加 100 金币后购买刺客印记扣到 50、商品售罄、HUD 旁侧“已购”状态出现；关闭商店后 `Time.timeScale=1`；复测 Console Error/Warning 为 0；退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。

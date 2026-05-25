@@ -2,6 +2,12 @@
 
 更新时间：2026-05-25
 
+## 商店界面化购买发现
+- 直接在 `ShopItemInteractable.Interact()` 中扣款会让玩家缺少“确认自己买了什么”的反馈层；更合适的结构是商品脚本保留数据与结算，UIManager 负责打开商店面板和展示购买状态。
+- 商店面板应使用 legacy `Text` + `UITheme.GameFont` 承载中文商品信息，避免 TMP 字体缺中文导致方块或 warning。
+- World Space `InteractableHint` 原本使用 MedievalSharp TMP 字体，中文提示会触发缺字 warning；改成 legacy `Text` 后可同时改善木桶、宝箱、商店等中文提示。
+- HUD 旁侧购买记录不应替代已有金币/Build 面板，只做增量的已购状态列表，符合“不删减/隐藏现有 UI 和玩法功能”的约束。
+
 ## 项目当前资料
 
 - `Assets/Docs/Current_Work_Status_And_Optimization.md` 存在，内容是当前工作状态与后续优化清单。

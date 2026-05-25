@@ -467,21 +467,22 @@
 - 仍待人工视觉 QA：从游戏视角确认吐酸蓄力、受击回弹和死亡坍缩是否足够清楚、是否需要继续调参。
 
 ### 新增子任务：神秘商店场景与金币消费系统
-状态：playmode_verified_pending_visual_tuning
+状态：playmode_verified_ui_iteration
 
 内容：
 - 新增商店商品交互脚本规划与最小实现，商品继承统一 `IInteractable` 接口。
-- 商品靠近时显示 World Space 提示，格式为“商品名：价格金币”。
-- 商品只响应 E 键购买，不响应 J 或鼠标左键，保持宝箱式交互语义。
-- 玩家金币足够时扣除 GOLD、应用祝福/遗物效果并销毁商品或标记售罄。
+- 商品靠近时显示 World Space 提示；按 E 打开暂停式商店面板，而不是直接扣款。
+- 商品只响应 E 键打开商店，不响应 J 或鼠标左键，保持宝箱式交互语义。
+- 玩家在商店面板中点击商品或按 1/2/3 购买；金币足够时扣除 GOLD、应用祝福/遗物效果并标记售罄。
 - 玩家金币不足时复用世界飘字提示“金币不足”。
-- UIManager 后续只做增量接口：提供商店售价/购买反馈入口与公共奖励应用方法，不删除现有升级、遗物、HUD、暂停或死亡 UI。
+- UIManager 增量新增商店面板与 HUD 旁侧“已购”状态列表，不删除现有升级、遗物、HUD、暂停或死亡 UI。
 
 验收标准：
 - `ShopItemInteractable` 可挂载到货架商品上，并被 `PlayerInteractionDetector` 选中。
-- E 键购买会正确扣金币，金币 HUD 通过现有 `OnGoldChanged` 自动更新。
+- E 键会打开商店面板；面板购买会正确扣金币，金币 HUD 通过现有 `OnGoldChanged` 自动更新。
 - 不足金币不扣款、不发奖励，并显示短文本提示。
-- 已售商品不可重复购买。
+- 已售商品不可重复购买，并在面板中显示售罄状态。
+- 购买成功的商品会显示在 HUD 状态栏旁边的“已购”列表。
 - 不改变木桶 `E/J/鼠标左键`、宝箱 `E` 的原始输入语义。
 
 验证记录：
@@ -494,3 +495,10 @@
 - 首次人工测试发现商品在玩家脚下但没有稳定交互提示/购买反馈；已修复 `PlayerInteractionDetector` 场景交互物注册时序，并让 `ShopItemInteractable.Start()` 二次注册。
 - 已进入 QA_Sandbox Play Mode 验证：注册商品数 3，最近商品可被 `PlayerInteractionDetector` 聚焦，金币不足分支 `0 -> 0` 且商品仍可交互；金币充足分支 `100 -> 65` 且商品售罄不可重复买。
 - Play Mode 验证后 Console Error 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
+- 按用户反馈完成商店 UI 化迭代：`ShopItemInteractable.Interact()` 改为优先打开 `UIManager.OpenShopPanel(...)`，购买逻辑保留在商品类中供 UI 调用。
+- `UIManager` 新增暂停式 `ShopPanel`，显示商品名称、价格、说明、可购买/金币不足/已售罄状态，并支持点击或数字键购买。
+- `UIManager` 新增 `ShopPurchaseStatusRoot`，购买成功后在 `ModernHudRoot` 右侧显示“已购 + 商品名”的小状态条。
+- `InteractableHint` 的运行时文本改用 legacy `Text` + `UITheme.GameFont`，避免 World Space 中文提示触发 TMP MedievalSharp 缺字 warning。
+- 本地静态大括号检查通过：`ShopItemInteractable.cs` 为 40/40，`UIManager.cs` 为 322/322，`InteractableHint.cs` 为 38/38。
+- QA_Sandbox Play Mode 自动验证：商品数 3；E/Interact 可打开商店并暂停 `Time.timeScale=0`；金币不足分支 `0 -> 0` 且未售出；加 100 金币后购买刺客印记扣到 50、商品售罄、HUD 旁侧已购状态出现；关闭商店后 `Time.timeScale=1`。
+- 复测 Console Error/Warning 为 0；退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。

@@ -154,13 +154,20 @@ public class InteractableHint : MonoBehaviour
 
             GameObject textObject = new GameObject("HintText");
             textObject.transform.SetParent(panel.transform, false);
-            tmpLabel = textObject.AddComponent<TextMeshProUGUI>();
-            tmpLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            UITheme.ApplyTMPText(tmpLabel, Color.white, 21f, true);
-            tmpLabel.outlineWidth = 0.14f;
-            tmpLabel.outlineColor = new Color(0f, 0f, 0f, 0.9f);
-            label = null;
-            RectTransform textRect = tmpLabel.rectTransform;
+            label = textObject.AddComponent<Text>();
+            label.alignment = TextAnchor.MiddleLeft;
+            label.font = UITheme.GameFont;
+            label.fontSize = 21;
+            label.color = Color.white;
+            label.raycastTarget = false;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            UITheme.ApplyText(label);
+            Outline outline = textObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.86f);
+            outline.effectDistance = new Vector2(1.6f, -1.6f);
+            tmpLabel = null;
+            RectTransform textRect = label.rectTransform;
             textRect.anchorMin = new Vector2(0f, 0f);
             textRect.anchorMax = new Vector2(1f, 1f);
             textRect.offsetMin = new Vector2(48f, 0f);
