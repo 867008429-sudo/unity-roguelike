@@ -253,6 +253,9 @@ public class QASandboxController : MonoBehaviour
         selectedAnimation.dashStretchScale = Slider("Dash Stretch", selectedAnimation.dashStretchScale, 0.4f, 1.8f);
         selectedAnimation.hurtKnockbackScale = Slider("Hurt Weight", selectedAnimation.hurtKnockbackScale, 0.4f, 1.8f);
         selectedAnimation.deathFallScale = Slider("Death Fall", selectedAnimation.deathFallScale, 0.3f, 1.6f);
+        selectedAnimation.slimeSpitSwellScale = Slider("Slime Spit Swell", selectedAnimation.slimeSpitSwellScale, 0.4f, 1.8f);
+        selectedAnimation.slimeHurtSquashScale = Slider("Slime Hurt Squash", selectedAnimation.slimeHurtSquashScale, 0.4f, 1.8f);
+        selectedAnimation.slimeDeathMeltScale = Slider("Slime Death Melt", selectedAnimation.slimeDeathMeltScale, 0.4f, 1.8f);
 
         GUILayout.BeginHorizontal();
         selectedAnimation.skeletonMotion = GUILayout.Toggle(selectedAnimation.skeletonMotion, "Skeleton");

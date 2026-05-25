@@ -37,6 +37,9 @@ public class CharacterAnimationController : MonoBehaviour
     public float dashStretchScale = 1.12f;
     public float hurtKnockbackScale = 1.08f;
     public float deathFallScale = 1f;
+    public float slimeSpitSwellScale = 1f;
+    public float slimeHurtSquashScale = 1f;
+    public float slimeDeathMeltScale = 1f;
     public bool slimeMotion;
     public bool skeletonMotion;
 
@@ -146,6 +149,9 @@ public class CharacterAnimationController : MonoBehaviour
                 dashStretchScale = 0.85f;
                 hurtKnockbackScale = 0.9f;
                 deathFallScale = 0.9f;
+                slimeSpitSwellScale = 0.75f;
+                slimeHurtSquashScale = 0.75f;
+                slimeDeathMeltScale = 0.75f;
                 slimeMotion = false;
                 skeletonMotion = true;
                 break;
@@ -163,6 +169,9 @@ public class CharacterAnimationController : MonoBehaviour
                 dashStretchScale = 1.25f;
                 hurtKnockbackScale = 1.22f;
                 deathFallScale = 0.72f;
+                slimeSpitSwellScale = 1.28f;
+                slimeHurtSquashScale = 1.22f;
+                slimeDeathMeltScale = 1.18f;
                 slimeMotion = true;
                 skeletonMotion = false;
                 break;
@@ -180,6 +189,9 @@ public class CharacterAnimationController : MonoBehaviour
                 dashStretchScale = 1.12f;
                 hurtKnockbackScale = 1.08f;
                 deathFallScale = 1f;
+                slimeSpitSwellScale = 1f;
+                slimeHurtSquashScale = 1f;
+                slimeDeathMeltScale = 1f;
                 slimeMotion = false;
                 skeletonMotion = false;
                 break;
@@ -434,6 +446,13 @@ public class CharacterAnimationController : MonoBehaviour
         }
 
         localHit.Normalize();
+
+        if (slimeMotion)
+        {
+            yield return SlimeHurtRoutine(localHit);
+            yield break;
+        }
+
         SetRendererColor(hurtFlashColor);
 
         yield return AnimatePhase(hurtDuration * 0.42f, t =>
@@ -461,6 +480,12 @@ public class CharacterAnimationController : MonoBehaviour
     {
         transientLocked = true;
         RestoreRendererColors();
+
+        if (slimeMotion)
+        {
+            yield return SlimeDeathRoutine();
+            yield break;
+        }
 
         yield return AnimatePhase(deathDuration * 0.28f, t =>
         {
@@ -515,6 +540,12 @@ public class CharacterAnimationController : MonoBehaviour
         direction = NormalizeFlatDirection(direction);
         Vector3 localDirection = transform.InverseTransformDirection(direction).normalized;
 
+        if (slimeMotion)
+        {
+            yield return SlimeSpitWindupRoutine(localDirection, duration);
+            yield break;
+        }
+
         yield return AnimatePhase(duration, t =>
         {
             float swell = Mathf.Sin(t * Mathf.PI);
@@ -533,6 +564,147 @@ public class CharacterAnimationController : MonoBehaviour
         });
 
         EndTransient();
+    }
+
+    private IEnumerator SlimeSpitWindupRoutine(Vector3 localDirection, float duration)
+    {
+        float swellScale = Mathf.Max(0.1f, slimeSpitSwellScale);
+
+        yield return AnimatePhase(duration * 0.24f, t =>
+        {
+            float squash = EaseOutCubic(t);
+            visualRoot.localPosition = startLocalPosition - localDirection * 0.11f * squash + Vector3.down * 0.055f * squash;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-8f * squash, 0f, -5f * squash);
+            visualRoot.localScale = new Vector3(
+                startLocalScale.x * (1f + 0.18f * swellScale * squash),
+                startLocalScale.y * (1f - 0.2f * swellScale * squash),
+                startLocalScale.z * (1f + 0.18f * swellScale * squash));
+        });
+
+        yield return AnimatePhase(duration * 0.52f, t =>
+        {
+            float charge = EaseInOutCubic(t);
+            float pulse = Mathf.Sin(t * Mathf.PI * 6f) * (1f - t * 0.25f);
+            float wobble = Mathf.Sin(t * Mathf.PI * 8f);
+            visualRoot.localPosition = startLocalPosition - localDirection * (0.08f + 0.05f * charge) + Vector3.up * (0.018f * pulse);
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(6f * charge, 0f, wobble * 8f * swellScale);
+            visualRoot.localScale = new Vector3(
+                startLocalScale.x * (1f + (0.28f * charge + 0.035f * pulse) * swellScale),
+                startLocalScale.y * (1f + (0.32f * charge - 0.025f * pulse) * swellScale),
+                startLocalScale.z * (1f + (0.28f * charge + 0.035f * pulse) * swellScale));
+        });
+
+        yield return AnimatePhase(duration * 0.24f, t =>
+        {
+            float spit = Mathf.Sin(t * Mathf.PI);
+            float snap = EaseOutBack(t);
+            visualRoot.localPosition = startLocalPosition + localDirection * 0.11f * spit + Vector3.up * 0.025f * spit;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-12f * spit, 0f, 3f * spit);
+            visualRoot.localScale = Vector3.Lerp(
+                new Vector3(startLocalScale.x * (1f - 0.16f * swellScale), startLocalScale.y * (1f + 0.18f * swellScale), startLocalScale.z * (1f - 0.08f * swellScale)),
+                startLocalScale,
+                snap);
+        });
+
+        yield return AnimatePhase(0.13f, t =>
+        {
+            float rebound = EaseOutBack(t);
+            visualRoot.localPosition = Vector3.Lerp(startLocalPosition - localDirection * 0.045f, startLocalPosition, rebound);
+            visualRoot.localRotation = Quaternion.Slerp(startLocalRotation * Quaternion.Euler(5f, 0f, -5f), startLocalRotation, rebound);
+            visualRoot.localScale = Vector3.Lerp(new Vector3(startLocalScale.x * 1.08f, startLocalScale.y * 0.92f, startLocalScale.z * 1.06f), startLocalScale, rebound);
+        });
+
+        EndTransient();
+    }
+
+    private IEnumerator SlimeHurtRoutine(Vector3 localHit)
+    {
+        float squashScale = Mathf.Max(0.1f, slimeHurtSquashScale);
+        Color slimeFlash = Color.Lerp(hurtFlashColor, new Color(0.55f, 1f, 0.58f, 1f), 0.25f);
+        SetRendererColor(slimeFlash);
+
+        yield return AnimatePhase(hurtDuration * 0.28f, t =>
+        {
+            float punch = EaseOutBack(t);
+            visualRoot.localPosition = startLocalPosition + localHit * 0.2f * hurtKnockbackScale * punch + Vector3.down * 0.075f * squashScale * punch;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-8f * punch, 0f, 17f * Mathf.Sign(localHit.x + 0.01f) * squashScale * punch);
+            visualRoot.localScale = new Vector3(
+                startLocalScale.x * (1f + 0.26f * squashScale),
+                startLocalScale.y * (1f - 0.34f * squashScale),
+                startLocalScale.z * (1f + 0.18f * squashScale));
+        }, true);
+
+        RestoreRendererColors();
+
+        yield return AnimatePhase(hurtDuration * 0.32f, t =>
+        {
+            float rebound = Mathf.Sin(t * Mathf.PI);
+            float side = Mathf.Sin(t * Mathf.PI * 2f);
+            visualRoot.localPosition = startLocalPosition + localHit * 0.08f * (1f - t) + Vector3.up * 0.055f * rebound;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(4f * rebound, 0f, side * 12f * squashScale);
+            visualRoot.localScale = new Vector3(
+                startLocalScale.x * (1f - 0.12f * rebound * squashScale),
+                startLocalScale.y * (1f + 0.22f * rebound * squashScale),
+                startLocalScale.z * (1f - 0.08f * rebound * squashScale));
+        }, true);
+
+        yield return AnimatePhase(hurtDuration * 0.4f, t =>
+        {
+            float settle = EaseOutCubic(t);
+            float wobble = Mathf.Sin(t * Mathf.PI * 3f) * (1f - t);
+            visualRoot.localPosition = Vector3.Lerp(startLocalPosition + localHit * 0.035f, startLocalPosition, settle);
+            visualRoot.localRotation = Quaternion.Slerp(startLocalRotation * Quaternion.Euler(0f, 0f, wobble * 9f), startLocalRotation, settle);
+            visualRoot.localScale = Vector3.Lerp(startLocalScale * (1f + 0.04f * wobble), startLocalScale, settle);
+        }, true);
+
+        EndTransient();
+    }
+
+    private IEnumerator SlimeDeathRoutine()
+    {
+        float meltScale = Mathf.Max(0.1f, slimeDeathMeltScale);
+        Color deathTint = new Color(0.42f, 1f, 0.5f, 1f);
+
+        yield return AnimatePhase(deathDuration * 0.2f, t =>
+        {
+            float shock = EaseOutBack(t);
+            SetRendererColor(Color.Lerp(hurtFlashColor, deathTint, t * 0.55f));
+            visualRoot.localPosition = startLocalPosition + Vector3.up * 0.07f * shock;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(5f * shock, 0f, -9f * shock);
+            visualRoot.localScale = new Vector3(
+                startLocalScale.x * (1f - 0.1f * shock),
+                startLocalScale.y * (1f + 0.2f * shock),
+                startLocalScale.z * (1f - 0.1f * shock));
+        });
+
+        RestoreRendererColors();
+
+        yield return AnimatePhase(deathDuration * 0.48f, t =>
+        {
+            float melt = EaseInOutCubic(t);
+            float wobble = Mathf.Sin(t * Mathf.PI * 5f) * (1f - t);
+            visualRoot.localPosition = startLocalPosition + Vector3.down * 0.16f * meltScale * melt;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-6f * melt, 0f, wobble * 10f * meltScale);
+            visualRoot.localScale = new Vector3(
+                startLocalScale.x * (1f + 0.48f * meltScale * melt),
+                startLocalScale.y * (1f - 0.58f * meltScale * melt),
+                startLocalScale.z * (1f + 0.42f * meltScale * melt));
+            SetRendererAlpha(1f - 0.28f * melt);
+        });
+
+        yield return AnimatePhase(deathDuration * 0.32f, t =>
+        {
+            float fade = EaseOutCubic(t);
+            visualRoot.localPosition = startLocalPosition + Vector3.down * (0.16f * meltScale + 0.08f * fade);
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(0f, 0f, Mathf.Sin(t * Mathf.PI * 2f) * 4f * (1f - t));
+            visualRoot.localScale = new Vector3(
+                startLocalScale.x * Mathf.Lerp(1f + 0.48f * meltScale, 1.36f * meltScale, fade),
+                startLocalScale.y * Mathf.Lerp(1f - 0.58f * meltScale, 0.12f, fade),
+                startLocalScale.z * Mathf.Lerp(1f + 0.42f * meltScale, 1.26f * meltScale, fade));
+            SetRendererAlpha(0.72f * (1f - fade));
+        });
+
+        currentState = CharacterAnimState.Death;
     }
 
     private IEnumerator AnimatePhase(float duration, System.Action<float> apply, bool unscaled = false)

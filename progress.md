@@ -379,3 +379,21 @@
 - 用户确认骷髅已经开始接入资源级动画，后续可以继续补：史莱姆吐酸/受击/死亡、Boss 动作、精英怪颜色/动画差异、敌人攻击前摇统一规范。
 - 已将这组方向整理为 `task_plan.md` 中的后续任务“敌人资源级动画第二轮与攻击前摇规范”。
 - 建议下一步优先做史莱姆：它和骷髅差异最大，补完吐酸前膨胀、受击回弹、死亡软体坍缩后，敌人类型辨识度会立刻上一个台阶。
+
+### 史莱姆程序动画第二轮
+- 更新 `Assets/_Scripts/CharacterAnimationController.cs`：
+  - Slime 吐酸改为“压缩蓄力 -> 膨胀脉冲 -> 前向吐出 -> 回弹”的专属曲线。
+  - Slime 受击改为绿色闪白、横向摊开、向上回弹、余震回正，区别于 Skeleton/Player 的通用受击。
+  - Slime 死亡改为上弹、软体坍缩、贴地扩散和淡出，不再使用骨架式倒下曲线。
+  - 新增 `slimeSpitSwellScale`、`slimeHurtSquashScale`、`slimeDeathMeltScale` 三个可调参数。
+- 更新 `Assets/_Scripts/EnemyStats.cs`：
+  - Slime 死亡时先禁用碰撞体和 NavMeshAgent，让奖励/击杀逻辑照常结算，但保留渲染模型播放死亡坍缩。
+  - 延迟到死亡动画接近结束后再调用现有死亡碎裂/隐藏/销毁流程，避免刚死亡就消失。
+- 更新 `Assets/_Scripts/QA/QASandboxController.cs`：
+  - 动画调参面板新增 Slime Spit Swell、Slime Hurt Squash、Slime Death Melt 滑条。
+- 验证：
+  - 本地静态检查通过：`CharacterAnimationController.cs`、`EnemyStats.cs`、`QASandboxController.cs` 大括号平衡。
+  - UnityMCP 刷新编译成功；只出现过 MCP 自身 WebSocket warning，无项目脚本 Error。
+  - QA_Sandbox Play Mode：生成 Slime 后确认 `preset=Slime`、`slimeMotion=True`，触发吐酸和受击无 Console Error/Warning。
+  - QA_Sandbox Play Mode：击杀 Slime 后确认进入 Death 状态、延迟隐藏并最终销毁；清空 Console 后复测 Error/Warning 为 0；退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。
+  - 曾出现一次 `The referenced script (Unknown) on this Behaviour is missing!`，随后扫描当前 QA 场景未发现 missing script，对同一 Slime 死亡流程清空 Console 后复测未复现。

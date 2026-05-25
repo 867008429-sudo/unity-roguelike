@@ -101,3 +101,9 @@
 - 一套全局程序动画参数不足以同时服务主角、Skeleton 和 Slime：Skeleton 已有资源级骨骼动画后，外层程序动画需要更克制；Slime 则需要更夸张的 squash/stretch 才能和骨架敌人拉开差异。
 - 旧场景序列化可能让新增 enum 字段落在 `Custom`，因此运行时需要按组件类型自动推断默认 preset，避免新默认参数在旧场景中不生效。
 - QA 面板只调 Idle/Move 不够，攻击姿态、攻击位移、闪避拉伸、受击重量和死亡倒下强度也需要暴露，否则“爽感”仍需要改代码才能迭代。
+
+## 史莱姆程序动画第二轮发现
+
+- Slime 当前没有资源级 Animator，仍适合先用 `CharacterAnimationController` 做软体程序动画；吐酸、受击、死亡需要和 Skeleton 的骨骼动画明显拉开。
+- `EnemyStats.Die()` 原先在 `OnDeath` 后立刻调用 `GameFeelVFXManager.HideLiveEnemy(...)`，会导致 Slime 的程序死亡动画刚触发就被隐藏；Slime 需要延迟隐藏，同时先禁用碰撞和 NavMeshAgent，避免尸体继续阻挡或寻路。
+- QA_Sandbox 已经具备生成 Slime、触发 Spit、Enemy Hurt、Kill Selected Enemy 的入口，适合作为敌人动作第二轮的快速验证场景。

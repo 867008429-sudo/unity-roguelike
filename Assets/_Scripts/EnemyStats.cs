@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Events;
 
 public class EnemyStats : MonoBehaviour
@@ -124,9 +125,17 @@ public class EnemyStats : MonoBehaviour
             deathColor = new Color(1f, 0.65f, 0.15f, 1f);
         }
 
-        GameFeelVFXManager.Instance.PlayEnemyDeathFracture(gameObject, deathColor);
-        GameFeelVFXManager.Instance.HideLiveEnemy(gameObject);
-        StartCoroutine(DestroyAfterFracture());
+        if (enemyType == EnemyType.Slime)
+        {
+            DisableDeathCollision();
+            StartCoroutine(DelayedSlimeDeathVFX(deathColor));
+        }
+        else
+        {
+            GameFeelVFXManager.Instance.PlayEnemyDeathFracture(gameObject, deathColor);
+            GameFeelVFXManager.Instance.HideLiveEnemy(gameObject);
+            StartCoroutine(DestroyAfterFracture());
+        }
     }
 
     private void SpawnGold(int amount)
@@ -175,6 +184,39 @@ public class EnemyStats : MonoBehaviour
     {
         yield return new WaitForSeconds(1.8f);
         Destroy(gameObject);
+    }
+
+    private System.Collections.IEnumerator DelayedSlimeDeathVFX(Color deathColor)
+    {
+        CharacterAnimationController animationController = GetComponent<CharacterAnimationController>();
+        float delay = animationController != null ? Mathf.Clamp(animationController.deathDuration * 0.86f, 0.45f, 1.25f) : 0.75f;
+        yield return new WaitForSeconds(delay);
+
+        if (this == null || gameObject == null)
+        {
+            yield break;
+        }
+
+        GameFeelVFXManager.Instance.PlayEnemyDeathFracture(gameObject, deathColor);
+        GameFeelVFXManager.Instance.HideLiveEnemy(gameObject);
+        StartCoroutine(DestroyAfterFracture());
+    }
+
+    private void DisableDeathCollision()
+    {
+        foreach (Collider collider in GetComponentsInChildren<Collider>())
+        {
+            if (collider != null)
+            {
+                collider.enabled = false;
+            }
+        }
+
+        NavMeshAgent agent = GetComponent<NavMeshAgent>();
+        if (agent != null)
+        {
+            agent.enabled = false;
+        }
     }
 
     private System.Collections.IEnumerator DeathAnimation()
