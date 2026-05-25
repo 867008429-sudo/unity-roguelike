@@ -251,3 +251,13 @@
 - 将“开始界面按钮 variant 与设置 Field 化”更新为 `compile_verified_pending_button_qa`，记录已通过静态检查和编译刷新，仍待按钮行为与主音量 Slider 人工 QA。
 - 将“角色动画反馈第一轮”更新为 `compile_verified_pending_playmode_qa`，记录已通过静态检查和编译刷新，仍待 Play Mode 可见反馈逐项验证。
 - 将“战斗爽感第一轮”更新为 `smoke_verified_pending_gameplay_qa`，记录已通过编译和短 Play Mode 烟测，仍待三段普攻、流派触发、完美闪避的完整实机 QA。
+
+### Git 仓库初始化
+
+- 在项目根目录初始化本地 Git 仓库。
+- 新增 Unity 适用 `.gitignore`，忽略 `Library/`、`Temp/`、`Logs/`、`UserSettings/`、`ReferenceRepos/`、`TempAssets/` 等本地缓存、临时资源和参考源码目录。
+- 修正 `.gitignore` 中 `/Obj/` 为根目录匹配，避免误忽略 `Assets/_ImportedArt/KayKit/Dungeon/obj/` 美术资源目录。
+- 检查未发现超过 90MB 的待提交单文件。
+- 创建初始提交 `035da4c Initial Unity project baseline`，包含 `Assets/`、`Packages/`、`ProjectSettings/`、规划文件和 `.gitignore`。
+- 将默认分支改名为 `main`。
+- 当前尚未设置 GitHub 远端；用户提供了账号页 `https://github.com/867008429-sudo`，后续需要具体仓库 URL 后再执行 `git remote add origin ...` 和 `git push -u origin main`。
