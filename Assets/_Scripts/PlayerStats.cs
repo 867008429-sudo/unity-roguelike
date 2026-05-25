@@ -17,6 +17,8 @@ public class PlayerStats : MonoBehaviour
     public int critBuildLevel;
     public int burnBuildLevel;
     public int lightningBuildLevel;
+    public bool thunderStrikeBlessingUnlocked;
+    public bool overloadExplosionBlessingUnlocked;
     public int level = 1;
     public int currentXP;
     public int gold;
@@ -30,6 +32,10 @@ public class PlayerStats : MonoBehaviour
     public UnityEvent OnDeath = new UnityEvent();
 
     private bool isDead;
+    public bool CanUnlockThunderStrikeBlessing => critBuildLevel >= 2 && lightningBuildLevel >= 2 && !thunderStrikeBlessingUnlocked;
+    public bool CanUnlockOverloadExplosionBlessing => burnBuildLevel >= 2 && lightningBuildLevel >= 2 && !overloadExplosionBlessingUnlocked;
+    public bool HasThunderStrikeBlessing => thunderStrikeBlessingUnlocked;
+    public bool HasOverloadExplosionBlessing => overloadExplosionBlessingUnlocked;
 
     private void Awake()
     {
@@ -191,6 +197,22 @@ public class PlayerStats : MonoBehaviour
         if (!isDead)
         {
             burnBuildLevel = Mathf.Clamp(burnBuildLevel + amount, 0, 6);
+        }
+    }
+
+    public void UnlockThunderStrikeBlessing()
+    {
+        if (!isDead)
+        {
+            thunderStrikeBlessingUnlocked = true;
+        }
+    }
+
+    public void UnlockOverloadExplosionBlessing()
+    {
+        if (!isDead)
+        {
+            overloadExplosionBlessingUnlocked = true;
         }
     }
 

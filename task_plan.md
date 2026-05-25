@@ -502,3 +502,51 @@
 - 本地静态大括号检查通过：`ShopItemInteractable.cs` 为 40/40，`UIManager.cs` 为 322/322，`InteractableHint.cs` 为 38/38。
 - QA_Sandbox Play Mode 自动验证：商品数 3；E/Interact 可打开商店并暂停 `Time.timeScale=0`；金币不足分支 `0 -> 0` 且未售出；加 100 金币后购买刺客印记扣到 50、商品售罄、HUD 旁侧已购状态出现；关闭商店后 `Time.timeScale=1`。
 - 复测 Console Error/Warning 为 0；退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。
+
+### 新增子任务：战斗清场后的分支传送门机制
+状态：playmode_verified_qa_sandbox
+
+内容：
+- 新增 `PortalInteractable`，显式继承 `IInteractable`，并使用 `PortalType { NextBattleWave, SecretShop }` 区分目的地。
+- `WaveManager` 在清场奖励结算后暂停自动续波，生成“下一波战斗”和“神秘商店整备”两扇 E-only 传送门。
+- 选择神秘商店会进入非战斗安全状态，清理敌方弹体/酸池/残余敌人，保持 `Time.timeScale=1`，生成运行时商店布景和“整备完毕”返回传送门。
+- 选择下一波或从商店返回会清理传送门/商店对象，恢复下一波生成，并显示中文波次提示。
+- Boss 波在遗物奖励选择结束后再进入传送门分支，避免奖励面板和传送门同时抢输入。
+- `QA_Sandbox` 的 F2 面板新增 `Simulate Wave Clear Portals` 按钮，用于不跑完整波次直接验证分支门。
+
+验收标准：
+- 清场后 WaveManager 不再自动倒计时刷下一波，必须等待玩家选择传送门。
+- 两扇清场传送门都使用 World Space 中文提示，且只响应 E 键。
+- 进入商店后无后台刷怪、无危险酸池/弹体残留，`Time.timeScale` 始终为 1。
+- 商店内可复用现有商品购买面板；整备完毕后可通过出口传送门恢复下一波。
+- 不改变木桶、宝箱、商店商品已有输入语义。
+
+验收记录：
+- 本地静态检查通过：`WaveManager.cs` 大括号 96/96，`PortalInteractable.cs` 大括号 15/15，`QASandboxController.cs` 大括号 75/75。
+- UnityMCP 全量刷新编译通过；Console 项目级 Error 为 0。
+- QA_Sandbox Play Mode 冒烟确认：模拟清场生成 2 扇门；进入神秘商店后 `Time.timeScale=1` 且只保留“整备完毕”出口门；从出口返回后传送门与运行时商店隐藏，下一波进入 `waveInProgress=True` 并生成 9 个敌人；退出 Play Mode 后 Console Error 为 0。
+
+### 新增子任务：双重/交织祝福系统
+状态：compile_verified_panel_smoke
+
+内容：
+- 在保留现有暴击、燃烧、闪电流派层数的基础上新增双重祝福激活状态。
+- 当 `critBuildLevel >= 2 && lightningBuildLevel >= 2` 且未激活时，“雷霆一击”允许进入祝福/遗物随机池。
+- 当 `burnBuildLevel >= 2 && lightningBuildLevel >= 2` 且未激活时，“超载爆炸”允许进入祝福/遗物随机池。
+- 雷霆一击激活后，暴击命中会触发金蓝连锁闪电，向附近敌人传导基于暴击伤害的伤害。
+- 超载爆炸激活后，闪电命中已燃烧敌人时触发红蓝范围爆炸，并刷新/外扩燃烧。
+- 新增双重祝福专属 VFX 接口，复用现有池化 slash/particle，不引入大量临时 Instantiate。
+- QA_Sandbox F2 面板新增“一键满层暴击闪电”和“一键满层燃烧闪电”按钮，方便直接弹出双重祝福验证。
+
+验收标准：
+- 不删除或替换现有升级/遗物选项、HUD、商店、传送门或输入语义。
+- 双重祝福只有满足层数条件后才进入候选池，选中后才激活效果。
+- 祝福文本继续使用 Legacy Text + 中文字体，富文本颜色标签正常显示。
+- 雷霆一击和超载爆炸能挂接到现有命中闭环，不影响普通暴击、燃烧、闪电触发。
+- Unity Console 项目级 Error 为 0。
+
+验收记录：
+- 静态检查通过：`PlayerStats.cs`、`EnemyStats.cs`、`PlayerController.cs`、`UIManager.cs`、`VisualEffectsManager.cs`、`QASandboxController.cs` 大括号均平衡。
+- UnityMCP 刷新编译通过；Console 项目级 Error 为 0。
+- Play Mode 面板冒烟：暴击+闪电满层后强制祝福面板包含“雷霆一击”；燃烧+闪电满层后强制祝福面板包含“超载爆炸”；打开面板时 `Time.timeScale=0`，符合原祝福选择暂停语义。
+- 仍待人工战斗观感 QA：需要在 QA_Sandbox 中实际选择双重祝福后生成敌人，确认链闪长度、爆炸范围、颜色层次和伤害数值手感。

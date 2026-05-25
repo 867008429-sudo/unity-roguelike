@@ -8,6 +8,7 @@ public class QASandboxController : MonoBehaviour
     public PlayerController playerController;
     public CharacterAnimationController playerAnimation;
     public UIManager uiManager;
+    public WaveManager waveManager;
     public GameObject skeletonPrefab;
     public GameObject slimePrefab;
     public Transform enemySpawnRoot;
@@ -103,6 +104,18 @@ public class QASandboxController : MonoBehaviour
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
+        if (GUILayout.Button("一键满层暴击闪电"))
+        {
+            GrantCritLightningBuild();
+        }
+
+        if (GUILayout.Button("一键满层燃烧闪电"))
+        {
+            GrantBurnLightningBuild();
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
         if (GUILayout.Button("Relic Panel"))
         {
             uiManager?.QueueRelicChoice(0);
@@ -175,6 +188,12 @@ public class QASandboxController : MonoBehaviour
             ClearEnemies();
         }
         GUILayout.EndHorizontal();
+
+        if (GUILayout.Button("Simulate Wave Clear Portals"))
+        {
+            EnsureWaveManagerForPortalTest();
+            waveManager?.SimulateWaveClearForQA();
+        }
 
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("Enemy Attack"))
@@ -290,6 +309,11 @@ public class QASandboxController : MonoBehaviour
         {
             uiManager = FindObjectOfType<UIManager>();
         }
+
+        if (waveManager == null)
+        {
+            waveManager = FindObjectOfType<WaveManager>();
+        }
     }
 
     private void DamagePlayer()
@@ -320,6 +344,37 @@ public class QASandboxController : MonoBehaviour
         }
 
         playerStats.AddXP(Mathf.Max(1, playerStats.xpToNextLevel - playerStats.currentXP));
+    }
+
+    private void GrantCritLightningBuild()
+    {
+        if (playerStats == null)
+        {
+            return;
+        }
+
+        playerStats.critBuildLevel = 6;
+        playerStats.lightningBuildLevel = 6;
+        playerStats.critChance = Mathf.Max(playerStats.critChance, 0.85f);
+        playerStats.critMultiplier = Mathf.Max(playerStats.critMultiplier, 2.4f);
+        playerStats.shockwaveChance = Mathf.Max(playerStats.shockwaveChance, 0.85f);
+        uiManager?.ForceOpenDualBlessingChoiceForQA();
+    }
+
+    private void GrantBurnLightningBuild()
+    {
+        if (playerStats == null)
+        {
+            return;
+        }
+
+        playerStats.burnBuildLevel = 6;
+        playerStats.lightningBuildLevel = 6;
+        playerStats.burnChance = Mathf.Max(playerStats.burnChance, 0.9f);
+        playerStats.burnDamagePerSecond = Mathf.Max(playerStats.burnDamagePerSecond, 18f);
+        playerStats.burnDuration = Mathf.Max(playerStats.burnDuration, 4f);
+        playerStats.shockwaveChance = Mathf.Max(playerStats.shockwaveChance, 0.85f);
+        uiManager?.ForceOpenDualBlessingChoiceForQA();
     }
 
     private Vector3 GetPlayerFacing()
@@ -413,6 +468,35 @@ public class QASandboxController : MonoBehaviour
         spawnedEnemies.Clear();
         selectedEnemy = null;
         selectedAnimation = playerAnimation;
+    }
+
+    private void EnsureWaveManagerForPortalTest()
+    {
+        if (waveManager == null)
+        {
+            waveManager = FindObjectOfType<WaveManager>();
+        }
+
+        if (waveManager == null)
+        {
+            GameObject obj = new GameObject("QA_WaveManager");
+            waveManager = obj.AddComponent<WaveManager>();
+        }
+
+        waveManager.skeletonPrefab = skeletonPrefab;
+        waveManager.slimePrefab = slimePrefab;
+        waveManager.spawnPoints = enemySpawnPoints;
+        waveManager.autoStartWaves = false;
+
+        GameManager gameManager = GameManager.Instance;
+        if (gameManager != null)
+        {
+            gameManager.waveManager = waveManager;
+            if (uiManager != null)
+            {
+                gameManager.uiManager = uiManager;
+            }
+        }
     }
 
     private void RemoveMissingEnemies()

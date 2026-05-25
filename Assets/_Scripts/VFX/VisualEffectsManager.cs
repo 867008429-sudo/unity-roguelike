@@ -106,6 +106,37 @@ public class VisualEffectsManager : MonoBehaviour
         StartCoroutine(ReleasePulseAfter(pulse, duration, radius));
     }
 
+    public void PlayDualBlessingPulse(Vector3 position, Color primaryColor, Color secondaryColor, float radius, float duration)
+    {
+        PlayGroundPulse(position, primaryColor, radius, duration);
+        PlayGroundPulse(position + Vector3.up * 0.02f, secondaryColor, radius * 0.72f, duration * 0.82f);
+        PlayHitBurst(position + Vector3.up * 0.55f, Color.Lerp(primaryColor, secondaryColor, 0.5f));
+    }
+
+    public void PlayChainLightning(Vector3 from, Vector3 to, Color color, float duration)
+    {
+        Vector3 delta = to - from;
+        delta.y = 0f;
+        float length = delta.magnitude;
+        if (length < 0.1f)
+        {
+            PlayHitBurst(to + Vector3.up * 0.5f, color);
+            return;
+        }
+
+        GameObject bolt = GetSlash();
+        Vector3 direction = delta / length;
+        bolt.transform.position = (from + to) * 0.5f + Vector3.up * 0.85f;
+        OrientBillboard(bolt.transform, direction);
+        bolt.transform.localScale = new Vector3(0.18f, length * 1.4f, 1f);
+        bolt.SetActive(true);
+
+        Renderer renderer = bolt.GetComponent<Renderer>();
+        renderer.material.mainTexture = enemySlashTexture != null ? enemySlashTexture : hitParticleTexture;
+        renderer.material.color = color;
+        StartCoroutine(ReleaseSlashAfter(bolt, duration, 1.2f));
+    }
+
     private void PlaySlash(Vector3 position, Vector3 direction, float length, float width, Color color, Texture2D texture, float duration, float expandSpeed, float height)
     {
         if (direction.sqrMagnitude < 0.001f)

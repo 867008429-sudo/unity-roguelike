@@ -476,3 +476,51 @@
 - 更新 `Assets/_Scripts/UI/InteractableHint.cs`：World Space 交互提示从 TMP 改为 legacy `Text` + `UITheme.GameFont`，避免中文提示被 MedievalSharp TMP 字体替换成方块并刷 warning。
 - 静态检查：`ShopItemInteractable.cs` 大括号 40/40，`UIManager.cs` 大括号 322/322，`InteractableHint.cs` 大括号 38/38。
 - UnityMCP/Play Mode QA：刷新编译后 Console Error 为 0；进入 `QA_Sandbox` Play Mode 后商品数为 3；调用商品交互后商店面板打开且 `Time.timeScale=0`；金币不足分支 `0 -> 0` 且商品未售出；加 100 金币后购买刺客印记扣到 50、商品售罄、HUD 旁侧“已购”状态出现；关闭商店后 `Time.timeScale=1`；复测 Console Error/Warning 为 0；退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。
+
+### 战斗清场后的分支传送门机制
+- 新增 `Assets/_Scripts/Interaction/PortalInteractable.cs`，显式继承 `IInteractable`，并新增 `PortalType { NextBattleWave, SecretShop }`。
+- 传送门只响应 E 键交互，`AllowsAttackInteraction=false`、`AllowsMouseInteraction=false`，靠近时使用已有 `InteractableHint` 显示中文 World Space 提示。
+- 扩展 `Assets/_Scripts/WaveManager.cs`：
+  - 普通波次清场后不再自动 `Invoke(StartNextWave)`，改为进入分支等待态。
+  - 清场后在玩家附近生成“进入下一波战斗”和“进入神秘商店整备”两扇传送门。
+  - 选择下一波会清理传送门和商店对象，保持 `Time.timeScale=1`，然后恢复下一波生成与中文波次提示。
+  - 选择神秘商店会清理酸池、弹体和残余敌人，生成运行时安全商店布景、复用 `ShopItemInteractable` 生成 3 个商品，并额外生成“整备完毕，返回战斗”传送门。
+  - Boss 波遗物奖励结束后再进入传送门选择，避免遗物面板和分支门同时抢暂停/输入状态。
+- 更新 `Assets/_Scripts/QA/QASandboxController.cs`：F2 面板新增 `Simulate Wave Clear Portals` 按钮，会创建/配置 QA 用 `WaveManager` 并手动触发模拟清场传送门。
+- 本地静态检查通过：`WaveManager.cs` 大括号 96/96，`PortalInteractable.cs` 大括号 15/15，`QASandboxController.cs` 大括号 75/75。
+- UnityMCP 刷新编译通过；Console 项目级 Error 为 0。
+- QA_Sandbox Play Mode 冒烟：
+  - 模拟清场后 `Time.timeScale=1`，生成 2 扇传送门，提示分别为“[E] 进入神秘商店整备”和“[E] 进入下一波战斗”。
+  - 进入神秘商店后 `Time.timeScale=1`，旧分支门隐藏，只保留“[E] 整备完毕，返回战斗”出口门，运行时商店生成成功。
+  - 通过出口返回后传送门数为 0，`RuntimeSecretShop` 隐藏，随后 `currentWave=2`、`waveInProgress=True`、`alive=9`，下一波正常生成。
+  - Play Mode 退出后 Console Error 仍为 0。
+
+### 双重/交织祝福系统第一轮
+- 扩展 `Assets/_Scripts/PlayerStats.cs`：
+  - 保留现有 `critBuildLevel`、`burnBuildLevel`、`lightningBuildLevel`。
+  - 新增 `thunderStrikeBlessingUnlocked` 与 `overloadExplosionBlessingUnlocked` 激活状态。
+  - 新增 `CanUnlockThunderStrikeBlessing`：`critBuildLevel >= 2 && lightningBuildLevel >= 2` 且未激活。
+  - 新增 `CanUnlockOverloadExplosionBlessing`：`burnBuildLevel >= 2 && lightningBuildLevel >= 2` 且未激活。
+- 扩展 `Assets/_Scripts/UIManager.cs`：
+  - 原有祝福/遗物池不删减，改为在数组基础上生成可用池。
+  - 满足条件时增量加入 `<color>` 富文本双重祝福词条：“双重祝福：雷霆一击”和“双重祝福：超载爆炸”。
+  - QA 强制打开双重祝福面板时会优先把当前满足条件的双重祝福塞进 3 个候选项，方便直接验证。
+  - Build 面板新增 Dual 状态显示：Thunder / Overload。
+- 扩展 `Assets/_Scripts/PlayerController.cs`：
+  - 雷霆一击：暴击命中且已激活双重祝福时，从暴击目标向附近敌人拉金蓝连锁闪电，造成基于暴击伤害、暴击层数和闪电层数的传导伤害。
+  - 超载爆炸：闪电/雷霆链命中已燃烧敌人时，触发红蓝圆形超载爆炸，对范围内敌人造成伤害并刷新/外扩燃烧。
+- 扩展 `Assets/_Scripts/EnemyStats.cs`：新增 `IsBurning()`，用于判断闪电命中时是否触发超载。
+- 扩展 `Assets/_Scripts/VFX/VisualEffectsManager.cs`：新增 `PlayDualBlessingPulse(...)` 和 `PlayChainLightning(...)`，复用现有 slash/particle 池，不额外新建大量临时对象。
+- 更新 `Assets/_Scripts/QA/QASandboxController.cs`：F2 面板新增“一键满层暴击闪电”和“一键满层燃烧闪电”按钮，分别拉满对应流派层数并强制弹出优先含双重祝福的祝福面板。
+- 本地静态检查通过：
+  - `PlayerStats.cs` 大括号 51/51。
+  - `EnemyStats.cs` 大括号 46/46。
+  - `PlayerController.cs` 大括号 124/124。
+  - `UIManager.cs` 大括号 342/342。
+  - `VisualEffectsManager.cs` 大括号 70/70。
+  - `QASandboxController.cs` 大括号 81/81。
+- UnityMCP 刷新编译通过；Console 项目级 Error 为 0。
+- Play Mode 冒烟：
+  - 正式场景中设置 `critBuildLevel=6`、`lightningBuildLevel=6` 后调用 QA 强制面板，候选项包含“雷霆一击”，`Time.timeScale=0`。
+  - 重启 Play Mode 后设置 `burnBuildLevel=6`、`lightningBuildLevel=6`，候选项包含“超载爆炸”，`Time.timeScale=0`。
+  - 两次验证后 Console Error 为 0，退出 Play Mode。

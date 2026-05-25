@@ -85,6 +85,7 @@ public class UIManager : MonoBehaviour
     private bool awaitingRelicChoice;
     private bool upgradeChoicePaused;
     private bool relicChoicePaused;
+    private bool forceDualBlessingChoicesForQA;
     private int pendingUpgradeChoices;
     private int pendingRelicChoices;
     private float nextBuildSummaryUpdateTime;
@@ -374,6 +375,24 @@ public class UIManager : MonoBehaviour
         {
             ShowRelicChoices(wave);
         }
+    }
+
+    public void ForceOpenUpgradeChoiceForQA()
+    {
+        InitializeOnce();
+        if (awaitingUpgradeChoice || awaitingRelicChoice)
+        {
+            return;
+        }
+
+        pendingUpgradeChoices = Mathf.Max(1, pendingUpgradeChoices);
+        ShowUpgradeChoices();
+    }
+
+    public void ForceOpenDualBlessingChoiceForQA()
+    {
+        forceDualBlessingChoicesForQA = true;
+        ForceOpenUpgradeChoiceForQA();
     }
 
     public void ShowDeathPanel(int kills, int gold, int level)
@@ -1283,10 +1302,18 @@ public class UIManager : MonoBehaviour
             }
         };
 
+        List<UpgradeChoice> availablePool = new List<UpgradeChoice>(pool);
+        AddDualBlessingsToPool(availablePool);
+        if (forceDualBlessingChoicesForQA)
+        {
+            forceDualBlessingChoicesForQA = false;
+            return GenerateForcedDualBlessingChoices(availablePool);
+        }
+
         List<int> pickedIndices = new List<int>();
         while (pickedIndices.Count < 3)
         {
-            int candidate = Random.Range(0, pool.Length);
+            int candidate = Random.Range(0, availablePool.Count);
             if (!pickedIndices.Contains(candidate))
             {
                 pickedIndices.Add(candidate);
@@ -1295,9 +1322,9 @@ public class UIManager : MonoBehaviour
 
         return new[]
         {
-            pool[pickedIndices[0]],
-            pool[pickedIndices[1]],
-            pool[pickedIndices[2]]
+            availablePool[pickedIndices[0]],
+            availablePool[pickedIndices[1]],
+            availablePool[pickedIndices[2]]
         };
     }
 
@@ -1380,10 +1407,13 @@ public class UIManager : MonoBehaviour
             }
         };
 
+        List<UpgradeChoice> availablePool = new List<UpgradeChoice>(pool);
+        AddDualBlessingsToPool(availablePool);
+
         List<int> pickedIndices = new List<int>();
         while (pickedIndices.Count < 3)
         {
-            int candidate = Random.Range(0, pool.Length);
+            int candidate = Random.Range(0, availablePool.Count);
             if (!pickedIndices.Contains(candidate))
             {
                 pickedIndices.Add(candidate);
@@ -1392,10 +1422,89 @@ public class UIManager : MonoBehaviour
 
         return new[]
         {
-            pool[pickedIndices[0]],
-            pool[pickedIndices[1]],
-            pool[pickedIndices[2]]
+            availablePool[pickedIndices[0]],
+            availablePool[pickedIndices[1]],
+            availablePool[pickedIndices[2]]
         };
+    }
+
+    private void AddDualBlessingsToPool(List<UpgradeChoice> pool)
+    {
+        if (pool == null || playerStats == null)
+        {
+            return;
+        }
+
+        if (playerStats.CanUnlockThunderStrikeBlessing)
+        {
+            pool.Add(CreateThunderStrikeChoice());
+        }
+
+        if (playerStats.CanUnlockOverloadExplosionBlessing)
+        {
+            pool.Add(CreateOverloadExplosionChoice());
+        }
+    }
+
+    private UpgradeChoice CreateThunderStrikeChoice()
+    {
+        return new UpgradeChoice
+        {
+            title = "<color=#7CCBFF>双重祝福</color>：雷霆一击",
+            description = "<color=#FFD866>暴击 + 闪电</color>。暴击命中时释放金蓝连锁闪电，向附近敌人传导暴击伤害。",
+            apply = (stats, controller) => stats.UnlockThunderStrikeBlessing()
+        };
+    }
+
+    private UpgradeChoice CreateOverloadExplosionChoice()
+    {
+        return new UpgradeChoice
+        {
+            title = "<color=#FF7A3D>双重祝福</color>：超载爆炸",
+            description = "<color=#FF9F3D>燃烧 + 闪电</color>。闪电命中燃烧目标时引爆红蓝超载爆炸，并刷新外扩燃烧。",
+            apply = (stats, controller) => stats.UnlockOverloadExplosionBlessing()
+        };
+    }
+
+    private UpgradeChoice[] GenerateForcedDualBlessingChoices(List<UpgradeChoice> availablePool)
+    {
+        List<UpgradeChoice> result = new List<UpgradeChoice>();
+        if (playerStats != null && playerStats.CanUnlockThunderStrikeBlessing)
+        {
+            result.Add(CreateThunderStrikeChoice());
+        }
+
+        if (playerStats != null && playerStats.CanUnlockOverloadExplosionBlessing)
+        {
+            result.Add(CreateOverloadExplosionChoice());
+        }
+
+        int safety = 0;
+        while (result.Count < 3 && availablePool != null && availablePool.Count > 0 && safety++ < 64)
+        {
+            UpgradeChoice candidate = availablePool[Random.Range(0, availablePool.Count)];
+            bool duplicate = false;
+            for (int i = 0; i < result.Count; i++)
+            {
+                if (result[i].title == candidate.title)
+                {
+                    duplicate = true;
+                    break;
+                }
+            }
+
+            if (!duplicate)
+            {
+                result.Add(candidate);
+            }
+        }
+
+        while (result.Count < 3 && availablePool != null && availablePool.Count > 0)
+        {
+            result.Add(availablePool[0]);
+        }
+
+        return result.ToArray();
     }
 
     private void ApplyUpgradeChoice(int index)
@@ -2291,6 +2400,8 @@ public class UIManager : MonoBehaviour
             "Build  Crit " + playerStats.critBuildLevel +
             "  Burn " + playerStats.burnBuildLevel +
             "  Lightning " + playerStats.lightningBuildLevel + "\n" +
+            "Dual  Thunder " + (playerStats.HasThunderStrikeBlessing ? "ON" : "off") +
+            "  Overload " + (playerStats.HasOverloadExplosionBlessing ? "ON" : "off") + "\n" +
             "Targets  " + playerController.maxTargetsPerAttack +
             "   Range  " + playerController.attackRange.ToString("0.0");
     }

@@ -389,6 +389,11 @@ public class PlayerController : MonoBehaviour
                 {
                     TriggerCritBurst(enemy.transform.position, rawDamage, enemy);
                 }
+
+                if (isCrit && stats.HasThunderStrikeBlessing)
+                {
+                    TriggerThunderStrike(enemy, rawDamage);
+                }
             }
         }
 
@@ -588,7 +593,7 @@ public class PlayerController : MonoBehaviour
                 continue;
             }
 
-            enemy.TakeDamage(damage, center);
+            ApplyLightningDamage(enemy, center, damage, false);
             chained++;
             if (stats.lightningBuildLevel < 2 && chained >= 3)
             {
@@ -628,6 +633,106 @@ public class PlayerController : MonoBehaviour
 
             enemy.TakeDamage(damage, center, true);
         }
+    }
+
+    private void TriggerThunderStrike(EnemyStats primaryTarget, float critRawDamage)
+    {
+        if (primaryTarget == null || stats == null)
+        {
+            return;
+        }
+
+        Vector3 center = primaryTarget.transform.position;
+        float radius = 3.1f + stats.lightningBuildLevel * 0.32f;
+        float damage = critRawDamage * (0.22f + stats.critBuildLevel * 0.035f + stats.lightningBuildLevel * 0.035f);
+        int maxChains = Mathf.Clamp(2 + stats.lightningBuildLevel / 2, 2, 5);
+
+        if (VisualEffectsManager.Instance != null)
+        {
+            VisualEffectsManager.Instance.PlayDualBlessingPulse(center, new Color(1f, 0.86f, 0.15f, 0.72f), new Color(0.24f, 0.72f, 1f, 0.72f), radius * 0.55f, 0.24f);
+        }
+
+        Collider[] nearby = Physics.OverlapSphere(center, radius);
+        int chained = 0;
+        foreach (Collider collider in nearby)
+        {
+            if (!collider.CompareTag("Enemy"))
+            {
+                continue;
+            }
+
+            EnemyStats enemy = collider.GetComponent<EnemyStats>();
+            if (enemy == null || enemy == primaryTarget || enemy.IsDead())
+            {
+                continue;
+            }
+
+            if (VisualEffectsManager.Instance != null)
+            {
+                VisualEffectsManager.Instance.PlayChainLightning(center, enemy.transform.position, new Color(0.55f, 0.86f, 1f, 0.95f), 0.18f);
+            }
+
+            ApplyLightningDamage(enemy, center, damage, true);
+            chained++;
+            if (chained >= maxChains)
+            {
+                break;
+            }
+        }
+    }
+
+    private void ApplyLightningDamage(EnemyStats enemy, Vector3 sourcePosition, float damage, bool criticalConduct)
+    {
+        if (enemy == null || enemy.IsDead())
+        {
+            return;
+        }
+
+        bool wasBurning = enemy.IsBurning();
+        enemy.TakeDamage(damage, sourcePosition, criticalConduct);
+        if (wasBurning && stats != null && stats.HasOverloadExplosionBlessing)
+        {
+            TriggerOverloadExplosion(enemy, sourcePosition);
+        }
+    }
+
+    private void TriggerOverloadExplosion(EnemyStats burningTarget, Vector3 sourcePosition)
+    {
+        if (burningTarget == null || stats == null)
+        {
+            return;
+        }
+
+        Vector3 center = burningTarget.transform.position;
+        float radius = 1.85f + stats.burnBuildLevel * 0.18f + stats.lightningBuildLevel * 0.18f;
+        float damage = Mathf.Max(4f, stats.burnDamagePerSecond * 0.85f + stats.atk * (0.18f + stats.lightningBuildLevel * 0.025f));
+        float burnDuration = stats.burnDuration * (1.0f + stats.lightningBuildLevel * 0.08f);
+        float burnDps = Mathf.Max(1f, stats.burnDamagePerSecond * (0.75f + stats.burnBuildLevel * 0.05f));
+
+        if (VisualEffectsManager.Instance != null)
+        {
+            VisualEffectsManager.Instance.PlayDualBlessingPulse(center, new Color(1f, 0.22f, 0.04f, 0.76f), new Color(0.15f, 0.62f, 1f, 0.72f), radius, 0.32f);
+        }
+
+        Collider[] nearby = Physics.OverlapSphere(center, radius);
+        foreach (Collider collider in nearby)
+        {
+            if (!collider.CompareTag("Enemy"))
+            {
+                continue;
+            }
+
+            EnemyStats enemy = collider.GetComponent<EnemyStats>();
+            if (enemy == null || enemy.IsDead())
+            {
+                continue;
+            }
+
+            enemy.TakeDamage(damage, sourcePosition);
+            enemy.ApplyBurn(burnDuration, burnDps, center);
+        }
+
+        DamageTextPool.Instance.ShowText(center, "超载爆炸", new Color(1f, 0.45f, 0.12f, 1f), true);
     }
 
     private void TriggerBurnSpread(EnemyStats primaryTarget)

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class WaveManager : MonoBehaviour
 {
@@ -9,19 +10,37 @@ public class WaveManager : MonoBehaviour
     public bool waveInProgress;
     public GameObject skeletonPrefab;
     public GameObject slimePrefab;
+    public GameObject nextBattlePortalPrefab;
+    public GameObject secretShopPortalPrefab;
+    public GameObject shopExitPortalPrefab;
+    public Transform portalSpawnCenter;
+    public Transform secretShopPoint;
+    public float portalSpawnDistance = 2.25f;
+    public bool autoStartWaves = true;
 
     private readonly List<GameObject> spawnedEnemies = new List<GameObject>();
+    private readonly List<GameObject> activePortalObjects = new List<GameObject>();
+    private readonly List<GameObject> activeShopObjects = new List<GameObject>();
     private UIManager uiManager;
     private bool awaitingPostBossReward;
+    private bool awaitingBranchChoice;
+    private bool inSecretShop;
 
     private void Start()
     {
         uiManager = FindObjectOfType<UIManager>();
-        Invoke(nameof(StartNextWave), 1f);
+        if (autoStartWaves)
+        {
+            Invoke(nameof(StartNextWave), 1f);
+        }
     }
 
     public void StartNextWave()
     {
+        ClearActivePortals();
+        ClearSecretShop();
+        awaitingBranchChoice = false;
+        inSecretShop = false;
         awaitingPostBossReward = false;
 
         if (GameManager.Instance != null && GameManager.Instance.isGameOver)
@@ -244,20 +263,20 @@ public class WaveManager : MonoBehaviour
     {
         if (bossWave)
         {
-            return "Boss Wave " + currentWave;
+            return "第 " + currentWave + " 波：首领来袭";
         }
 
         if (currentWave == 2)
         {
-            return "Wave 2: Slimes spit acid";
+            return "第 2 波：史莱姆开始吐酸";
         }
 
         if (currentWave == 3)
         {
-            return "Wave 3: Skeletons charge";
+            return "第 3 波：骷髅开始冲锋";
         }
 
-        return "Wave " + currentWave + " Begins";
+        return "第 " + currentWave + " 波开始";
     }
 
     private bool ShouldBecomeElite()
@@ -383,7 +402,7 @@ public class WaveManager : MonoBehaviour
             }
             else
             {
-                Invoke(nameof(StartNextWave), GameConfig.WaveSpawnDelay);
+                EnterBranchChoiceState();
             }
         }
     }
@@ -401,6 +420,351 @@ public class WaveManager : MonoBehaviour
             return;
         }
 
-        Invoke(nameof(StartNextWave), GameConfig.WaveSpawnDelay);
+        EnterBranchChoiceState();
+    }
+
+    public void HandlePortalSelected(PortalType portalType)
+    {
+        if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+        {
+            return;
+        }
+
+        if (portalType == PortalType.SecretShop)
+        {
+            EnterSecretShop();
+            return;
+        }
+
+        BeginNextBattleFromPortal();
+    }
+
+    public void SimulateWaveClearForQA()
+    {
+        CancelInvoke(nameof(StartNextWave));
+        ClearCombatDangers();
+        waveInProgress = false;
+        aliveEnemies = 0;
+        currentWave = Mathf.Max(1, currentWave);
+        if (uiManager == null)
+        {
+            uiManager = FindObjectOfType<UIManager>();
+        }
+
+        if (uiManager != null)
+        {
+            uiManager.ShowWaveNotification("QA：模拟清场，选择传送门");
+        }
+
+        EnterBranchChoiceState();
+    }
+
+    private void EnterBranchChoiceState()
+    {
+        CancelInvoke(nameof(StartNextWave));
+        awaitingBranchChoice = true;
+        inSecretShop = false;
+        ClearCombatDangers();
+        ClearActivePortals();
+        ClearSecretShop();
+        SpawnBranchPortals();
+
+        if (uiManager != null)
+        {
+            uiManager.ShowWaveNotification("战斗清场：选择下一步");
+        }
+    }
+
+    private void EnterSecretShop()
+    {
+        CancelInvoke(nameof(StartNextWave));
+        awaitingBranchChoice = true;
+        inSecretShop = true;
+        Time.timeScale = 1f;
+        ClearActivePortals();
+        ClearCombatDangers();
+        SpawnSecretShop();
+
+        if (uiManager != null)
+        {
+            uiManager.ShowWaveNotification("神秘商店：安全整备");
+        }
+    }
+
+    private void BeginNextBattleFromPortal()
+    {
+        CancelInvoke(nameof(StartNextWave));
+        Time.timeScale = 1f;
+        awaitingBranchChoice = false;
+        inSecretShop = false;
+        ClearActivePortals();
+        ClearSecretShop();
+
+        if (uiManager != null)
+        {
+            uiManager.ShowWaveNotification("传送完成，下一波即将开始");
+        }
+
+        Invoke(nameof(StartNextWave), 0.35f);
+    }
+
+    private void SpawnBranchPortals()
+    {
+        Vector3 center = GetPortalCenter();
+        Vector3 right = GetPortalRight();
+        CreatePortal(PortalType.NextBattleWave, center - right * portalSpawnDistance, nextBattlePortalPrefab, "[E] 进入下一波战斗");
+        CreatePortal(PortalType.SecretShop, center + right * portalSpawnDistance, secretShopPortalPrefab, "[E] 进入神秘商店整备");
+    }
+
+    private void SpawnSecretShop()
+    {
+        Vector3 center = GetSecretShopCenter();
+        GameObject root = new GameObject("RuntimeSecretShop");
+        root.transform.position = center;
+        activeShopObjects.Add(root);
+
+        CreateShopPlatform(root.transform, center);
+        Transform itemRoot = CreateShopStall(root.transform, center);
+        CreateShopItem(itemRoot, center + new Vector3(-1.35f, 0.7f, 0.1f), "战士之力", 35, ShopItemRewardType.AttackBlessing, new Color(1f, 0.68f, 0.26f));
+        CreateShopItem(itemRoot, center + new Vector3(0f, 0.7f, 0.1f), "治疗血瓶", 25, ShopItemRewardType.HealthPotion, new Color(0.86f, 0.1f, 0.12f));
+        CreateShopItem(itemRoot, center + new Vector3(1.35f, 0.7f, 0.1f), "迅捷之靴", 55, ShopItemRewardType.WindBoots, new Color(0.25f, 0.72f, 1f));
+
+        CreatePortal(PortalType.NextBattleWave, center + new Vector3(0f, 0f, -2.65f), shopExitPortalPrefab, "[E] 整备完毕，返回战斗");
+    }
+
+    private void CreatePortal(PortalType portalType, Vector3 position, GameObject prefab, string prompt)
+    {
+        GameObject portal = prefab != null
+            ? Instantiate(prefab, position, Quaternion.identity)
+            : CreateFallbackPortalVisual(portalType, position);
+
+        portal.name = portalType == PortalType.SecretShop ? "Portal_SecretShop" : (inSecretShop ? "Portal_ReturnToBattle" : "Portal_NextBattleWave");
+        portal.transform.position = SnapToNavMesh(position);
+
+        PortalInteractable interactable = portal.GetComponent<PortalInteractable>();
+        if (interactable == null)
+        {
+            interactable = portal.AddComponent<PortalInteractable>();
+        }
+
+        interactable.portalType = portalType;
+        interactable.waveManager = this;
+        interactable.promptOverride = prompt;
+        interactable.interactDistance = 2.6f;
+
+        if (portal.GetComponent<Collider>() == null)
+        {
+            SphereCollider trigger = portal.AddComponent<SphereCollider>();
+            trigger.isTrigger = true;
+            trigger.radius = 1.15f;
+        }
+
+        activePortalObjects.Add(portal);
+    }
+
+    private GameObject CreateFallbackPortalVisual(PortalType portalType, Vector3 position)
+    {
+        Color color = portalType == PortalType.SecretShop
+            ? new Color(0.72f, 0.35f, 1f, 1f)
+            : new Color(0.24f, 0.72f, 1f, 1f);
+
+        GameObject root = new GameObject(portalType == PortalType.SecretShop ? "SecretShopPortalVisual" : "NextWavePortalVisual");
+        root.transform.position = position;
+
+        CreatePrimitivePart(root.transform, PrimitiveType.Cylinder, "Portal_Base", new Vector3(0f, 0.05f, 0f), new Vector3(1.55f, 0.08f, 1.55f), color * 0.75f);
+        CreatePrimitivePart(root.transform, PrimitiveType.Cube, "Portal_LeftPillar", new Vector3(-0.72f, 0.85f, 0f), new Vector3(0.18f, 1.55f, 0.18f), color);
+        CreatePrimitivePart(root.transform, PrimitiveType.Cube, "Portal_RightPillar", new Vector3(0.72f, 0.85f, 0f), new Vector3(0.18f, 1.55f, 0.18f), color);
+        CreatePrimitivePart(root.transform, PrimitiveType.Cube, "Portal_Top", new Vector3(0f, 1.62f, 0f), new Vector3(1.55f, 0.18f, 0.18f), color);
+        CreatePrimitivePart(root.transform, PrimitiveType.Cube, "Portal_Core", new Vector3(0f, 0.85f, 0f), new Vector3(1.05f, 1.25f, 0.08f), new Color(color.r, color.g, color.b, 0.46f));
+
+        Light light = root.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.color = color;
+        light.intensity = 1.7f;
+        light.range = 4.2f;
+        return root;
+    }
+
+    private Transform CreateShopStall(Transform root, Vector3 center)
+    {
+        GameObject stall = new GameObject("SecretShop_Stall");
+        stall.transform.SetParent(root);
+        stall.transform.position = center + new Vector3(0f, 0.35f, 0.65f);
+
+        CreatePrimitivePart(stall.transform, PrimitiveType.Cube, "Shop_Counter", Vector3.zero, new Vector3(4.5f, 0.5f, 1.15f), new Color(0.33f, 0.2f, 0.12f));
+        CreatePrimitivePart(stall.transform, PrimitiveType.Cube, "Shop_BackShelf", new Vector3(0f, 1.0f, 0.52f), new Vector3(4.3f, 1.1f, 0.2f), new Color(0.22f, 0.13f, 0.08f));
+        CreatePrimitivePart(stall.transform, PrimitiveType.Cube, "Shop_Candle", new Vector3(-2.05f, 0.55f, -0.1f), new Vector3(0.15f, 0.42f, 0.15f), new Color(1f, 0.86f, 0.45f));
+        CreatePrimitivePart(stall.transform, PrimitiveType.Sphere, "Shop_Crystal", new Vector3(2.05f, 0.62f, -0.08f), new Vector3(0.35f, 0.35f, 0.35f), new Color(0.52f, 0.3f, 1f));
+        return stall.transform;
+    }
+
+    private void CreateShopPlatform(Transform root, Vector3 center)
+    {
+        GameObject platform = CreatePrimitivePart(root, PrimitiveType.Cylinder, "SecretShop_SafeZone", Vector3.zero, new Vector3(5.8f, 0.08f, 5.8f), new Color(0.08f, 0.1f, 0.13f));
+        platform.transform.position = center + new Vector3(0f, 0.03f, 0f);
+        Light light = platform.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.color = new Color(0.62f, 0.48f, 1f);
+        light.intensity = 1.2f;
+        light.range = 6.5f;
+    }
+
+    private void CreateShopItem(Transform root, Vector3 position, string itemName, int price, ShopItemRewardType rewardType, Color color)
+    {
+        GameObject item = new GameObject("ShopItem_" + itemName);
+        item.transform.SetParent(root);
+        item.transform.position = position;
+
+        ShopItemInteractable shopItem = item.AddComponent<ShopItemInteractable>();
+        shopItem.itemName = itemName;
+        shopItem.price = price;
+        shopItem.rewardType = rewardType;
+        shopItem.destroyAfterPurchase = false;
+        shopItem.shopRoot = root;
+        shopItem.shopTitle = "神秘商店";
+        shopItem.interactDistance = 2.8f;
+
+        CreatePrimitivePart(item.transform, PrimitiveType.Sphere, "Item_Display", Vector3.zero, new Vector3(0.38f, 0.38f, 0.38f), color);
+    }
+
+    private GameObject CreatePrimitivePart(Transform parent, PrimitiveType primitiveType, string name, Vector3 localPosition, Vector3 localScale, Color color)
+    {
+        GameObject part = GameObject.CreatePrimitive(primitiveType);
+        part.name = name;
+        part.transform.SetParent(parent);
+        part.transform.localPosition = localPosition;
+        part.transform.localRotation = Quaternion.identity;
+        part.transform.localScale = localScale;
+        Renderer renderer = part.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material.color = color;
+        }
+
+        Collider collider = part.GetComponent<Collider>();
+        if (collider != null)
+        {
+            Destroy(collider);
+        }
+
+        return part;
+    }
+
+    private Vector3 GetPortalCenter()
+    {
+        if (portalSpawnCenter != null)
+        {
+            return portalSpawnCenter.position;
+        }
+
+        if (GameManager.Instance != null && GameManager.Instance.playerTransform != null)
+        {
+            return GameManager.Instance.playerTransform.position + Vector3.forward * 2.5f;
+        }
+
+        PlayerController player = FindObjectOfType<PlayerController>();
+        return player != null ? player.transform.position + Vector3.forward * 2.5f : transform.position;
+    }
+
+    private Vector3 GetSecretShopCenter()
+    {
+        if (secretShopPoint != null)
+        {
+            return secretShopPoint.position;
+        }
+
+        return Vector3.zero;
+    }
+
+    private Vector3 GetPortalRight()
+    {
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            return Vector3.right;
+        }
+
+        Vector3 right = mainCamera.transform.right;
+        right.y = 0f;
+        return right.sqrMagnitude > 0.01f ? right.normalized : Vector3.right;
+    }
+
+    private Vector3 SnapToNavMesh(Vector3 position)
+    {
+        NavMeshHit hit;
+        if (NavMesh.SamplePosition(position, out hit, 2.5f, NavMesh.AllAreas))
+        {
+            return hit.position;
+        }
+
+        position.y = 0f;
+        return position;
+    }
+
+    private void ClearCombatDangers()
+    {
+        for (int i = spawnedEnemies.Count - 1; i >= 0; i--)
+        {
+            if (spawnedEnemies[i] != null)
+            {
+                spawnedEnemies[i].SetActive(false);
+                Destroy(spawnedEnemies[i]);
+            }
+        }
+
+        spawnedEnemies.Clear();
+        aliveEnemies = 0;
+
+        EnemyAI[] enemies = FindObjectsOfType<EnemyAI>();
+        for (int i = 0; i < enemies.Length; i++)
+        {
+            if (enemies[i] != null)
+            {
+                enemies[i].gameObject.SetActive(false);
+                Destroy(enemies[i].gameObject);
+            }
+        }
+
+        EnemyProjectile[] projectiles = FindObjectsOfType<EnemyProjectile>();
+        for (int i = 0; i < projectiles.Length; i++)
+        {
+            projectiles[i].gameObject.SetActive(false);
+            Destroy(projectiles[i].gameObject);
+        }
+
+        EnemyHazardZone[] hazards = FindObjectsOfType<EnemyHazardZone>();
+        for (int i = 0; i < hazards.Length; i++)
+        {
+            hazards[i].gameObject.SetActive(false);
+            Destroy(hazards[i].gameObject);
+        }
+    }
+
+    private void ClearActivePortals()
+    {
+        for (int i = activePortalObjects.Count - 1; i >= 0; i--)
+        {
+            if (activePortalObjects[i] != null)
+            {
+                activePortalObjects[i].SetActive(false);
+                Destroy(activePortalObjects[i]);
+            }
+        }
+
+        activePortalObjects.Clear();
+    }
+
+    private void ClearSecretShop()
+    {
+        for (int i = activeShopObjects.Count - 1; i >= 0; i--)
+        {
+            if (activeShopObjects[i] != null)
+            {
+                activeShopObjects[i].SetActive(false);
+                Destroy(activeShopObjects[i]);
+            }
+        }
+
+        activeShopObjects.Clear();
     }
 }

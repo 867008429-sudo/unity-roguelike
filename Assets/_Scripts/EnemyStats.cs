@@ -33,6 +33,7 @@ public class EnemyStats : MonoBehaviour
     private Renderer[] renderers;
     private EnemyAI enemyAI;
     private Coroutine burnRoutine;
+    private float burnExpireTime;
 
     private void Awake()
     {
@@ -78,6 +79,7 @@ public class EnemyStats : MonoBehaviour
             StopCoroutine(burnRoutine);
         }
 
+        burnExpireTime = Time.time + duration;
         burnRoutine = StartCoroutine(BurnRoutine(duration, damagePerSecond, sourcePosition));
     }
 
@@ -264,6 +266,11 @@ public class EnemyStats : MonoBehaviour
     public bool IsDead()
     {
         return isDead;
+    }
+
+    public bool IsBurning()
+    {
+        return !isDead && burnRoutine != null && Time.time < burnExpireTime;
     }
 
     private System.Collections.IEnumerator BurnRoutine(float duration, float damagePerSecond, Vector3 sourcePosition)

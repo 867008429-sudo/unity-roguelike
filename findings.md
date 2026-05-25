@@ -134,3 +134,20 @@
 - `UIManager` 当前祝福/遗物奖励表封装在 private `UpgradeChoice`、`GenerateUpgradeChoices()`、`GenerateRelicChoices()` 中，商店若要复用同一套奖励，后续应抽公共奖励应用接口，而不是让商品脚本反射或直接调用私有方法。
 - 金币不足提示可直接复用 `DamageTextPool.Instance.ShowText(...)`，已有“完美闪避”等世界短文本用例。
 - Play Mode 复现发现：场景内 interactable 依赖 `OnEnable` 注册时，可能被 `RuntimeInitializeOnLoadMethod(AfterSceneLoad)` 清空列表的时序影响，导致商品在玩家附近但没有稳定 focus。`PlayerInteractionDetector.EnsureInstance()` 需要主动扫描场景内所有 `IInteractable` 兜底注册；新商品也在 `Start()` 再注册一次。
+
+## 战斗清场分支传送门发现
+
+- `WaveManager.OnEnemyDeath()` 是最稳定的清场入口：原逻辑在 `aliveEnemies <= 0 && waveInProgress` 后发放清场奖励，并直接 `Invoke(StartNextWave)`；新分支机制应在这里替换自动续波，而不是另起计时器。
+- Boss 波需要特别处理：`UIManager.ApplyRelicChoice()` 已在遗物选择结束后调用 `WaveManager.HandlePostBossRewardResolved()`，因此 Boss 波应在遗物奖励关闭后再生成传送门，避免遗物面板暂停和传送门交互同时存在。
+- 传送门适合复用 `IInteractable` 与 `InteractableHint`：E-only、中文提示、优先级高于普通商品，能保持原输入语义并避免新增输入系统。
+- 进入商店前应显式清理 `EnemyProjectile` 和 `EnemyHazardZone`，否则清场后酸池残留会破坏“非战斗安全状态”的预期。
+- `Destroy(...)` 会延迟到帧末，为了让传送门/商店在同一帧内视觉上立即消失，清理时应先 `SetActive(false)` 再 `Destroy(...)`。
+
+## 双重祝福系统发现
+
+- 现有 `PlayerStats` 的 `critBuildLevel`、`burnBuildLevel`、`lightningBuildLevel` 已经足够作为双重祝福资格判定入口，不需要新建复杂技能树结构。
+- 双重祝福应区分“有资格加入随机池”和“已选中激活”：只满足层数不应自动白送效果，仍要通过祝福/遗物选择确认。
+- `UIManager` 当前升级/遗物选项已切到 Legacy `Text` 并启用富文本，适合直接使用 `<color>` 标签显示“双重祝福”和稀有度色彩，不会走 TMP 缺字路径。
+- `PlayerController.PerformAttackHit()` 是双重祝福战斗闭环的低风险接入点：暴击、燃烧、闪电原本都在这里按命中触发，可增量叠加而不改输入和基础伤害判定。
+- `EnemyStats` 原有燃烧协程没有公开状态，需要轻量 `IsBurning()` 判定；用 `burnExpireTime` 配合 `burnRoutine` 可以支持“闪电命中燃烧目标”。
+- 复合 VFX 适合复用 `VisualEffectsManager` 的 slash/particle 池：地面脉冲可以叠两层颜色，链闪可以用池化 Quad 表现，不需要每次生成新粒子 prefab。
