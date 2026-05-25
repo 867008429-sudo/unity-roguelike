@@ -281,3 +281,29 @@
 - UnityMCP 刷新编译成功；期间仅出现 MCP 自身 WebSocket warning，无项目脚本 Error。
 - 短 Play Mode 烟测：进入后 `Application.isPlaying=True`、开始菜单下 `Time.timeScale=0`、玩家存在 `CharacterAnimationController` 和 `PlayerAnimationDriver`；Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
 - 尚未完成完整实机玩法 QA，需要后续人工确认 Idle/Move/三段攻击/闪避/受击/死亡，以及骷髅冲锋和史莱姆吐酸前摇的实际观感。
+
+### 主角资源级动画 MVP
+
+- 通过 Unity AssetDatabase 盘点 KayKit FBX 内嵌动画：
+  - Adventurers 主角角色 `Barbarian/Knight/Rogue/RogueHooded/Mage` 均为 Generic rig，单模型约 152 个 `AnimationClip`。
+  - Skeleton 角色模型为 Generic rig，单模型约 190 个 `AnimationClip`。
+  - 可用主角基础 clips 包括 `Idle`、`Running_A`、`1H_Melee_Attack_Chop`、`1H_Melee_Attack_Slice_Horizontal`、`2H_Melee_Attack_Chop`、`Dodge_Forward`、`Hit_A`、`Death_A`。
+- 确认当前正式场景玩家视觉为 `Player/KayKitVisual/Player_Knight_Model`，由 `Assets/_ImportedArt/KayKit/Adventurers/Characters/fbx/Knight.fbx` 实例化而来，之前没有 Animator。
+- 新增 `Assets/_Scripts/PlayerResourceAnimationDriver.cs`：
+  - 运行时查找 `KayKitVisual/Player_Knight_Model`。
+  - 自动添加 Animator。
+  - 从 `Resources.Load<RuntimeAnimatorController>(\"Animation/PlayerKnightResource\")` 加载控制器。
+  - 根据玩家移动、攻击、闪避、受击、死亡播放资源级骨骼动画。
+- 更新 `PlayerController.EnsureAnimationDriver()`，自动补齐 `PlayerResourceAnimationDriver`。
+- 创建 `Assets/Resources/Animation/PlayerKnightResource.controller`，状态映射：
+  - `Idle -> Idle`
+  - `Move -> Running_A`
+  - `Attack1 -> 1H_Melee_Attack_Chop`
+  - `Attack2 -> 1H_Melee_Attack_Slice_Horizontal`
+  - `Attack3 -> 2H_Melee_Attack_Chop`
+  - `Dash -> Dodge_Forward`
+  - `Hurt -> Hit_A`
+  - `Death -> Death_A`
+- UnityMCP 刷新编译通过；期间仅出现 MCP 自身 WebSocket warning，无项目脚本 Error。
+- 短 Play Mode 烟测：进入后玩家 `bridge=True`、`model=True`、`animator=True`、`controller=PlayerKnightResource`，Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
+- 当前仍需人工实机 QA，重点看资源级骨骼动画和外层程序动画叠加是否自然，特别是三段攻击和闪避。

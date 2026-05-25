@@ -515,6 +515,11 @@ public class PlayerController : MonoBehaviour
         {
             gameObject.AddComponent<PlayerAnimationDriver>();
         }
+
+        if (GetComponent<PlayerResourceAnimationDriver>() == null)
+        {
+            gameObject.AddComponent<PlayerResourceAnimationDriver>();
+        }
     }
 
     private void AnimateAttackWindup(float t)

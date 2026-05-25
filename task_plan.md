@@ -322,6 +322,33 @@
 - Play Mode 烟测期间 Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
 - 仍缺完整人工玩法 QA：三段普攻观感、闪避爆发、受击/死亡重量、骷髅和史莱姆特殊动作的实机观感。
 
+### 新增子任务：主角资源级动画 MVP
+
+状态：smoke_verified_pending_gameplay_qa
+
+内容：
+
+- 盘点 KayKit 角色资源，确认 Adventurers 角色 FBX 内含约 152 个 Generic rig `AnimationClip`，Skeleton 角色 FBX 内含约 190 个 `AnimationClip`。
+- 为主角 Knight 创建 `Assets/Resources/Animation/PlayerKnightResource.controller`，状态包含 Idle、Move、Attack1、Attack2、Attack3、Dash、Hurt、Death。
+- 新增 `PlayerResourceAnimationDriver`，运行时查找 `KayKitVisual/Player_Knight_Model`，自动添加 Animator 并加载 `Resources/Animation/PlayerKnightResource`。
+- `PlayerController.EnsureAnimationDriver()` 自动补齐 `PlayerResourceAnimationDriver`，不需要手动挂场景组件。
+- Animator 负责骨骼级姿态变化，现有 `CharacterAnimationController` 继续作为外层程序动画叠加，保留手感增强。
+
+验收标准：
+
+- Unity Console 无项目级编译错误。
+- 进入 Play Mode 后玩家存在 `PlayerResourceAnimationDriver`。
+- `Player_Knight_Model` 运行时存在 Animator，并加载 `PlayerKnightResource`。
+- Idle、Move、Attack1/2/3、Dash、Hurt、Death 能由桥接脚本按状态播放。
+- 不改变现有移动、攻击、闪避、受伤、死亡判定逻辑。
+
+验证记录：
+
+- UnityMCP 刷新编译通过，Console 仅曾出现 MCP 自身 WebSocket warning，无项目脚本 Error。
+- Play Mode 烟测确认 `bridge=True`、`model=True`、`animator=True`、`controller=PlayerKnightResource`。
+- Play Mode 烟测期间 Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
+- 仍缺完整人工玩法 QA：移动循环、三段攻击、闪避、受击和死亡的实际观感与程序动画叠加是否协调。
+
 ## 风险控制规则
 
 - 不直接删除或隐藏已有 UI，除非有新版等价内容并完成验证。
