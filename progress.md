@@ -365,3 +365,12 @@
   - Slime：`preset=Slime`、`idle=0.055`、`sway=4.4`、`attack=1.18`、`dash=1.25`
 - UnityMCP 编译刷新通过；Play Mode 生成 Skeleton/Slime 后 Console Error/Warning 为 0。
 - 截图保存到 `Assets/Screenshots/qa_animation_tuning_defaults.png`；退出 Play Mode 后确认 `Application.isPlaying=False`、`Time.timeScale=1`。
+
+### 升级祝福延后选择与暂停
+- 根据用户反馈，将“升级后立刻暂停选祝福”改为“升级后右侧弹出祝福待选择提示，玩家点击提示或按 U 后再暂停并进入祝福选择”。
+- 更新 `Assets/_Scripts/UIManager.cs`：新增 `UpgradeReadyPrompt` 侧边提示；升级时只累积 `pendingUpgradeChoices` 并显示提示，不立即调用 `ShowUpgradeChoices()`；点击提示后进入选择并暂停。
+- 连续升级时保持待选数量，进入选择后逐层选择，全部选完再恢复 `Time.timeScale=1`。
+- 遗物选择继续使用同一套暂停恢复保护，避免奖励面板期间战斗继续流逝。
+- UnityMCP 刷新编译通过；Console 仅曾出现 MCP 自身 WebSocket warning，最终 Play Mode 验证后 Error/Warning 为 0。
+- QA_Sandbox Play Mode 验证：单次升级后 `Time.timeScale=1`，`UpgradeReadyPrompt` 显示，`UpgradePanel` 不显示；触发提示点击逻辑后 `Time.timeScale=0`，提示隐藏，`UpgradePanel` 显示；选择祝福后恢复 `Time.timeScale=1`。
+- 连续升级验证：多层待选时游戏不暂停且提示显示；进入选择后中途保持 `Time.timeScale=0`，全部选完后恢复 `Time.timeScale=1`。

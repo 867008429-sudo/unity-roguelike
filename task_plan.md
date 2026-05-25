@@ -425,3 +425,18 @@
 - Play Mode 验证 Player、Skeleton、Slime 三套默认值均正确应用。
 - Play Mode 通过 QA 面板生成 Skeleton/Slime 后 Console Error/Warning 为 0。
 - 截图记录：`Assets/Screenshots/qa_animation_tuning_defaults.png`。
+
+### 新增子任务：升级祝福延后选择与暂停
+状态：smoke_verified
+
+内容：
+- 升级后不再立刻暂停游戏。
+- 右侧显示“祝福待选择”提示，玩家点击提示或按 U 后才暂停并打开祝福选择面板。
+- 连续升级会累积待选祝福数量，进入选择后逐层处理，全部选完才恢复时间。
+- 遗物奖励面板继续使用暂停恢复保护，避免奖励选择期间战斗继续流逝。
+
+验收记录：
+- QA_Sandbox Play Mode 验证：单次升级后 `Time.timeScale=1`，提示显示，选择面板不显示。
+- 触发提示点击逻辑后 `Time.timeScale=0`，提示隐藏，祝福选择面板显示。
+- 选择祝福后恢复 `Time.timeScale=1`。
+- 连续升级验证：多层待选时游戏不暂停；进入选择后中途保持暂停，全部选完后恢复。

@@ -63,6 +63,8 @@ public class UIManager : MonoBehaviour
     private Text upgradeHintText;
     private Text[] upgradeOptionTexts;
     private UpgradeChoice[] activeChoices;
+    private GameObject upgradeReadyPrompt;
+    private Text upgradeReadyPromptText;
     private GameObject relicPanel;
     private Text relicHeaderText;
     private Text relicHintText;
@@ -70,6 +72,8 @@ public class UIManager : MonoBehaviour
     private UpgradeChoice[] activeRelicChoices;
     private bool awaitingUpgradeChoice;
     private bool awaitingRelicChoice;
+    private bool upgradeChoicePaused;
+    private bool relicChoicePaused;
     private int pendingUpgradeChoices;
     private int pendingRelicChoices;
     private float nextBuildSummaryUpdateTime;
@@ -146,6 +150,10 @@ public class UIManager : MonoBehaviour
             {
                 ApplyUpgradeChoice(2);
             }
+        }
+        else if (pendingUpgradeChoices > 0 && Input.GetKeyDown(KeyCode.U))
+        {
+            BeginPendingUpgradeChoice();
         }
         else if (awaitingRelicChoice)
         {
@@ -277,6 +285,7 @@ public class UIManager : MonoBehaviour
         }
 
         CreateUpgradePanel();
+        CreateUpgradeReadyPrompt();
         CreateRelicPanel();
         CreateControlsHelpPanel();
         HideBuildPanel();
@@ -474,7 +483,7 @@ public class UIManager : MonoBehaviour
 
         if (!awaitingUpgradeChoice)
         {
-            ShowUpgradeChoices();
+            UpdateUpgradeReadyPrompt();
         }
     }
 
@@ -601,9 +610,18 @@ public class UIManager : MonoBehaviour
     {
         awaitingUpgradeChoice = false;
         awaitingRelicChoice = false;
+        pendingUpgradeChoices = 0;
+        pendingRelicChoices = 0;
+        upgradeChoicePaused = false;
+        relicChoicePaused = false;
+        pausedModalCount = 0;
         if (upgradePanel != null)
         {
             upgradePanel.SetActive(false);
+        }
+        if (upgradeReadyPrompt != null)
+        {
+            upgradeReadyPrompt.SetActive(false);
         }
         if (relicPanel != null)
         {
@@ -671,6 +689,35 @@ public class UIManager : MonoBehaviour
         }
 
         upgradePanel.SetActive(false);
+    }
+
+    private void CreateUpgradeReadyPrompt()
+    {
+        if (mainCanvas == null || upgradeReadyPrompt != null)
+        {
+            return;
+        }
+
+        upgradeReadyPrompt = CreatePanel("UpgradeReadyPrompt", mainCanvas.transform, new Vector2(270f, 86f), new Color(0.055f, 0.06f, 0.078f, 0.94f));
+        RectTransform rect = upgradeReadyPrompt.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 0.5f);
+        rect.anchorMax = new Vector2(1f, 0.5f);
+        rect.pivot = new Vector2(1f, 0.5f);
+        rect.anchoredPosition = new Vector2(-18f, 84f);
+        rect.sizeDelta = new Vector2(270f, 86f);
+
+        Image image = upgradeReadyPrompt.GetComponent<Image>();
+        image.raycastTarget = true;
+
+        Button button = upgradeReadyPrompt.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.onClick.AddListener(BeginPendingUpgradeChoice);
+
+        CreateText(upgradeReadyPrompt.transform, "祝福待选择", 19, new Vector2(10f, 18f), new Vector2(220f, 28f), TextAnchor.MiddleLeft, UITheme.TitleColor);
+        upgradeReadyPromptText = CreateText(upgradeReadyPrompt.transform, "点击选择  U", 15, new Vector2(10f, -18f), new Vector2(220f, 24f), TextAnchor.MiddleLeft, UITheme.HintColor);
+        CreateChoiceBadge(upgradeReadyPrompt.transform, 1);
+        upgradeReadyPrompt.transform.Find("ChoiceBadge_1").GetComponent<RectTransform>().anchoredPosition = new Vector2(-106f, 0f);
+        upgradeReadyPrompt.SetActive(false);
     }
 
     private void CreateRelicPanel()
@@ -758,10 +805,12 @@ public class UIManager : MonoBehaviour
         {
             pendingUpgradeChoices = 0;
             awaitingUpgradeChoice = false;
-            Time.timeScale = 1f;
+            CloseChoiceModal(upgradePanel, ref upgradeChoicePaused, true);
+            UpdateUpgradeReadyPrompt();
             return;
         }
 
+        HideUpgradeReadyPrompt();
         activeChoices = GenerateUpgradeChoices();
         for (int i = 0; i < activeChoices.Length; i++)
         {
@@ -770,10 +819,48 @@ public class UIManager : MonoBehaviour
 
         pendingUpgradeChoices = Mathf.Max(0, pendingUpgradeChoices - 1);
         awaitingUpgradeChoice = true;
-        upgradePanel.transform.SetAsLastSibling();
-        upgradePanel.SetActive(true);
-        UIAnimationUtility.PopIn(upgradePanel.GetComponent<RectTransform>(), GetOrAddCanvasGroup(upgradePanel));
-        Time.timeScale = 1f;
+        OpenChoiceModal(upgradePanel, ref upgradeChoicePaused);
+    }
+
+    private void BeginPendingUpgradeChoice()
+    {
+        if (pendingUpgradeChoices <= 0 || awaitingUpgradeChoice || awaitingRelicChoice)
+        {
+            return;
+        }
+
+        ShowUpgradeChoices();
+    }
+
+    private void UpdateUpgradeReadyPrompt()
+    {
+        if (upgradeReadyPrompt == null)
+        {
+            return;
+        }
+
+        bool visible = pendingUpgradeChoices > 0 && !awaitingUpgradeChoice && !awaitingRelicChoice && (deathPanel == null || !deathPanel.activeInHierarchy);
+        upgradeReadyPrompt.SetActive(visible);
+        if (!visible)
+        {
+            return;
+        }
+
+        upgradeReadyPrompt.transform.SetAsLastSibling();
+        if (upgradeReadyPromptText != null)
+        {
+            upgradeReadyPromptText.text = pendingUpgradeChoices > 1 ? "点击选择  U  x" + pendingUpgradeChoices : "点击选择  U";
+        }
+
+        UIAnimationUtility.PopIn(upgradeReadyPrompt.GetComponent<RectTransform>(), GetOrAddCanvasGroup(upgradeReadyPrompt));
+    }
+
+    private void HideUpgradeReadyPrompt()
+    {
+        if (upgradeReadyPrompt != null)
+        {
+            upgradeReadyPrompt.SetActive(false);
+        }
     }
 
     private void ShowRelicChoices(int wave)
@@ -782,10 +869,12 @@ public class UIManager : MonoBehaviour
         {
             pendingRelicChoices = 0;
             awaitingRelicChoice = false;
-            Time.timeScale = 1f;
+            CloseChoiceModal(relicPanel, ref relicChoicePaused, true);
+            UpdateUpgradeReadyPrompt();
             return;
         }
 
+        HideUpgradeReadyPrompt();
         if (relicHeaderText != null)
         {
             relicHeaderText.text = "选择遗物";
@@ -799,10 +888,7 @@ public class UIManager : MonoBehaviour
 
         pendingRelicChoices = Mathf.Max(0, pendingRelicChoices - 1);
         awaitingRelicChoice = true;
-        relicPanel.transform.SetAsLastSibling();
-        relicPanel.SetActive(true);
-        UIAnimationUtility.PopIn(relicPanel.GetComponent<RectTransform>(), GetOrAddCanvasGroup(relicPanel));
-        Time.timeScale = 1f;
+        OpenChoiceModal(relicPanel, ref relicChoicePaused);
     }
 
     private UpgradeChoice[] GenerateUpgradeChoices()
@@ -1056,25 +1142,22 @@ public class UIManager : MonoBehaviour
 
         activeChoices[index].apply?.Invoke(playerStats, playerController);
         awaitingUpgradeChoice = false;
-        bool showNextPanel = pendingUpgradeChoices > 0 || pendingRelicChoices > 0;
-        if (showNextPanel)
-        {
-            upgradePanel.SetActive(false);
-        }
-        else
-        {
-            UIAnimationUtility.FadeOut(GetOrAddCanvasGroup(upgradePanel), 0.12f);
-        }
-        Time.timeScale = 1f;
 
         if (pendingUpgradeChoices > 0)
         {
             ShowUpgradeChoices();
+            return;
         }
-        else if (pendingRelicChoices > 0)
+
+        CloseChoiceModal(upgradePanel, ref upgradeChoicePaused, pendingRelicChoices > 0);
+
+        if (pendingRelicChoices > 0)
         {
             ShowRelicChoices(0);
+            return;
         }
+
+        UpdateUpgradeReadyPrompt();
     }
 
     private void ApplyRelicChoice(int index)
@@ -1086,19 +1169,10 @@ public class UIManager : MonoBehaviour
 
         activeRelicChoices[index].apply?.Invoke(playerStats, playerController);
         awaitingRelicChoice = false;
-        bool showNextPanel = pendingUpgradeChoices > 0 || pendingRelicChoices > 0;
-        if (showNextPanel)
-        {
-            relicPanel.SetActive(false);
-        }
-        else
-        {
-            UIAnimationUtility.FadeOut(GetOrAddCanvasGroup(relicPanel), 0.12f);
-        }
-        Time.timeScale = 1f;
 
         if (pendingUpgradeChoices > 0)
         {
+            CloseChoiceModal(relicPanel, ref relicChoicePaused, true);
             ShowUpgradeChoices();
             return;
         }
@@ -1109,11 +1183,57 @@ public class UIManager : MonoBehaviour
             return;
         }
 
+        CloseChoiceModal(relicPanel, ref relicChoicePaused, false);
+        UpdateUpgradeReadyPrompt();
+
         WaveManager waveManager = FindObjectOfType<WaveManager>();
         if (waveManager != null)
         {
             waveManager.HandlePostBossRewardResolved();
         }
+    }
+
+    private void OpenChoiceModal(GameObject panel, ref bool pauseToken)
+    {
+        if (panel == null)
+        {
+            return;
+        }
+
+        if (!pauseToken)
+        {
+            OpenModal(panel, true);
+            pauseToken = true;
+            return;
+        }
+
+        panel.transform.SetAsLastSibling();
+        panel.SetActive(true);
+        UIAnimationUtility.PopIn(panel.GetComponent<RectTransform>(), GetOrAddCanvasGroup(panel));
+        Time.timeScale = 0f;
+    }
+
+    private void CloseChoiceModal(GameObject panel, ref bool pauseToken, bool hideImmediately)
+    {
+        if (!pauseToken)
+        {
+            if (panel != null)
+            {
+                if (hideImmediately)
+                {
+                    panel.SetActive(false);
+                }
+                else
+                {
+                    UIAnimationUtility.FadeOut(GetOrAddCanvasGroup(panel), 0.12f);
+                }
+            }
+
+            return;
+        }
+
+        CloseModal(panel, true, hideImmediately);
+        pauseToken = false;
     }
 
     private void CreateChoiceBadge(Transform parent, int number)
@@ -1725,9 +1845,21 @@ public class UIManager : MonoBehaviour
 
     public void CloseModal(GameObject panel, bool resumeGame)
     {
+        CloseModal(panel, resumeGame, false);
+    }
+
+    private void CloseModal(GameObject panel, bool resumeGame, bool hideImmediately)
+    {
         if (panel != null)
         {
-            UIAnimationUtility.FadeOut(GetOrAddCanvasGroup(panel), 0.14f);
+            if (hideImmediately)
+            {
+                panel.SetActive(false);
+            }
+            else
+            {
+                UIAnimationUtility.FadeOut(GetOrAddCanvasGroup(panel), 0.14f);
+            }
         }
 
         if (resumeGame && pausedModalCount > 0)
