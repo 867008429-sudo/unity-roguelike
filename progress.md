@@ -374,3 +374,8 @@
 - UnityMCP 刷新编译通过；Console 仅曾出现 MCP 自身 WebSocket warning，最终 Play Mode 验证后 Error/Warning 为 0。
 - QA_Sandbox Play Mode 验证：单次升级后 `Time.timeScale=1`，`UpgradeReadyPrompt` 显示，`UpgradePanel` 不显示；触发提示点击逻辑后 `Time.timeScale=0`，提示隐藏，`UpgradePanel` 显示；选择祝福后恢复 `Time.timeScale=1`。
 - 连续升级验证：多层待选时游戏不暂停且提示显示；进入选择后中途保持 `Time.timeScale=0`，全部选完后恢复 `Time.timeScale=1`。
+
+### 敌人资源级动画后续方向记录
+- 用户确认骷髅已经开始接入资源级动画，后续可以继续补：史莱姆吐酸/受击/死亡、Boss 动作、精英怪颜色/动画差异、敌人攻击前摇统一规范。
+- 已将这组方向整理为 `task_plan.md` 中的后续任务“敌人资源级动画第二轮与攻击前摇规范”。
+- 建议下一步优先做史莱姆：它和骷髅差异最大，补完吐酸前膨胀、受击回弹、死亡软体坍缩后，敌人类型辨识度会立刻上一个台阶。
