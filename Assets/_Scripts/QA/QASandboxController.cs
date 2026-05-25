@@ -223,6 +223,23 @@ public class QASandboxController : MonoBehaviour
         }
 
         GUILayout.Label("Target: " + selectedAnimation.name);
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Player Defaults"))
+        {
+            selectedAnimation.ApplyPreset(CharacterAnimationPreset.Player);
+        }
+
+        if (GUILayout.Button("Skeleton Defaults"))
+        {
+            selectedAnimation.ApplyPreset(CharacterAnimationPreset.Skeleton);
+        }
+        GUILayout.EndHorizontal();
+
+        if (GUILayout.Button("Slime Defaults"))
+        {
+            selectedAnimation.ApplyPreset(CharacterAnimationPreset.Slime);
+        }
+
         selectedAnimation.idleBobHeight = Slider("Idle Bob Height", selectedAnimation.idleBobHeight, 0f, 0.2f);
         selectedAnimation.idleBobSpeed = Slider("Idle Bob Speed", selectedAnimation.idleBobSpeed, 0.2f, 7f);
         selectedAnimation.idleBreathScale = Slider("Idle Breath Scale", selectedAnimation.idleBreathScale, 0f, 0.16f);
@@ -231,6 +248,11 @@ public class QASandboxController : MonoBehaviour
         selectedAnimation.moveSpeed = Slider("Move Speed", selectedAnimation.moveSpeed, 1f, 18f);
         selectedAnimation.hurtDuration = Slider("Hurt Duration", selectedAnimation.hurtDuration, 0.05f, 0.7f);
         selectedAnimation.deathDuration = Slider("Death Duration", selectedAnimation.deathDuration, 0.2f, 2f);
+        selectedAnimation.attackPoseScale = Slider("Attack Pose", selectedAnimation.attackPoseScale, 0.4f, 1.8f);
+        selectedAnimation.attackLungeScale = Slider("Attack Lunge", selectedAnimation.attackLungeScale, 0.3f, 1.8f);
+        selectedAnimation.dashStretchScale = Slider("Dash Stretch", selectedAnimation.dashStretchScale, 0.4f, 1.8f);
+        selectedAnimation.hurtKnockbackScale = Slider("Hurt Weight", selectedAnimation.hurtKnockbackScale, 0.4f, 1.8f);
+        selectedAnimation.deathFallScale = Slider("Death Fall", selectedAnimation.deathFallScale, 0.3f, 1.6f);
 
         GUILayout.BeginHorizontal();
         selectedAnimation.skeletonMotion = GUILayout.Toggle(selectedAnimation.skeletonMotion, "Skeleton");

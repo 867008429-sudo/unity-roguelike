@@ -408,3 +408,20 @@
 - Play Mode 冒烟确认玩家存在 `CharacterAnimationController`、`PlayerResourceAnimationDriver`，`Player_Knight_Model` 存在 Animator。
 - 通过 QA 面板生成 Skeleton 和 Slime 后，Skeleton 存在 `EnemyResourceAnimationDriver`、模型 Animator 和 `SkeletonResource` controller；Slime 存在程序动画层。
 - 截图记录：`Assets/Screenshots/qa_sandbox_smoke.png`。
+
+### 新增子任务：动画手感 QA 调参第一轮
+
+状态：smoke_verified
+
+内容：
+- `CharacterAnimationController` 新增 `CharacterAnimationPreset`，区分 Player、Skeleton、Slime、Custom。
+- 固化 Player/Skeleton/Slime 三套默认动作参数，让主角更有攻击/闪避爽感，Skeleton 外层程序动画更克制，Slime 更软弹。
+- 新增攻击姿态、攻击位移、闪避拉伸、受击重量、死亡倒下强度等可调参数。
+- `QASandboxController` 面板新增 Player/Skeleton/Slime 默认值按钮，并暴露新强度滑条。
+- 兼容旧场景序列化：`Custom` 会在运行时根据 PlayerController 或 EnemyStats 类型推断默认 preset。
+
+验收记录：
+- UnityMCP 编译刷新通过，Console 无项目级 Error/Warning。
+- Play Mode 验证 Player、Skeleton、Slime 三套默认值均正确应用。
+- Play Mode 通过 QA 面板生成 Skeleton/Slime 后 Console Error/Warning 为 0。
+- 截图记录：`Assets/Screenshots/qa_animation_tuning_defaults.png`。

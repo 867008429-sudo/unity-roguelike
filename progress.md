@@ -348,3 +348,20 @@
 - Play Mode 冒烟：玩家存在 `CharacterAnimationController`、`PlayerResourceAnimationDriver`，`Player_Knight_Model` 存在 Animator。
 - 通过 QA 面板生成 Skeleton/Slime 后，Skeleton 存在 `EnemyResourceAnimationDriver`、模型 Animator 和 `SkeletonResource` controller；Slime 存在程序动画层。
 - 截图保存到 `Assets/Screenshots/qa_sandbox_smoke.png`；退出 Play Mode 后确认 `Application.isPlaying=False`、`Time.timeScale=1`。
+
+### 动画手感 QA 调参第一轮
+
+- 更新 `CharacterAnimationController`，新增 `CharacterAnimationPreset`：`Player`、`Skeleton`、`Slime`、`Custom`。
+- 固化三套默认动作参数：
+  - Player：更克制的 Idle 呼吸、更明显的移动倾斜、更强攻击姿态和闪避拉伸。
+  - Skeleton：降低外层压缩和弹跳，保留轻微骨架摇摆，避免和资源级骨骼动画互相打架。
+  - Slime：增强呼吸、弹跳、受击重量和软体拉伸，突出和 Skeleton 的差异。
+- 新增攻击姿态、攻击位移、闪避拉伸、受击重量、死亡倒下强度等可调参数，补足 QA 面板只能调 Idle/Move 的不足。
+- 更新 `QASandboxController`：面板新增 `Player Defaults`、`Skeleton Defaults`、`Slime Defaults` 按钮，并暴露新强度滑条。
+- 兼容旧场景序列化：若旧组件的 preset 为 `Custom`，运行时会根据 `PlayerController` 或 `EnemyStats.enemyType` 自动套入对应默认值。
+- 重建并验证 `QA_Sandbox`，Play Mode 中确认默认值：
+  - Player：`preset=Player`、`idle=0.038`、`sway=10.5`、`attack=1.08`、`dash=1.12`
+  - Skeleton：`preset=Skeleton`、`idle=0.025`、`sway=7.2`、`attack=0.92`、`dash=0.85`
+  - Slime：`preset=Slime`、`idle=0.055`、`sway=4.4`、`attack=1.18`、`dash=1.25`
+- UnityMCP 编译刷新通过；Play Mode 生成 Skeleton/Slime 后 Console Error/Warning 为 0。
+- 截图保存到 `Assets/Screenshots/qa_animation_tuning_defaults.png`；退出 Play Mode 后确认 `Application.isPlaying=False`、`Time.timeScale=1`。

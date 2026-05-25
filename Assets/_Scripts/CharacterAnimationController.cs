@@ -11,18 +11,32 @@ public enum CharacterAnimState
     Death
 }
 
+public enum CharacterAnimationPreset
+{
+    Custom,
+    Player,
+    Skeleton,
+    Slime
+}
+
 public class CharacterAnimationController : MonoBehaviour
 {
     public Transform visualRoot;
-    public float idleBobHeight = 0.045f;
-    public float idleBobSpeed = 2.4f;
-    public float idleBreathScale = 0.035f;
-    public float moveSwayAngle = 8f;
-    public float movePulse = 0.07f;
-    public float moveSpeed = 9.5f;
+    public CharacterAnimationPreset motionPreset = CharacterAnimationPreset.Player;
+    public float idleBobHeight = 0.038f;
+    public float idleBobSpeed = 2.15f;
+    public float idleBreathScale = 0.03f;
+    public float moveSwayAngle = 10.5f;
+    public float movePulse = 0.085f;
+    public float moveSpeed = 10.8f;
     public Color hurtFlashColor = Color.white;
-    public float hurtDuration = 0.24f;
-    public float deathDuration = 0.85f;
+    public float hurtDuration = 0.28f;
+    public float deathDuration = 1.05f;
+    public float attackPoseScale = 1.08f;
+    public float attackLungeScale = 1.08f;
+    public float dashStretchScale = 1.12f;
+    public float hurtKnockbackScale = 1.08f;
+    public float deathFallScale = 1f;
     public bool slimeMotion;
     public bool skeletonMotion;
 
@@ -43,6 +57,24 @@ public class CharacterAnimationController : MonoBehaviour
 
     private void Awake()
     {
+        if (motionPreset == CharacterAnimationPreset.Custom)
+        {
+            EnemyStats enemyStats = GetComponent<EnemyStats>();
+            if (GetComponent<PlayerController>() != null)
+            {
+                motionPreset = CharacterAnimationPreset.Player;
+            }
+            else if (enemyStats != null && enemyStats.enemyType == EnemyStats.EnemyType.Skeleton)
+            {
+                motionPreset = CharacterAnimationPreset.Skeleton;
+            }
+            else if (enemyStats != null && enemyStats.enemyType == EnemyStats.EnemyType.Slime)
+            {
+                motionPreset = CharacterAnimationPreset.Slime;
+            }
+        }
+
+        ApplyPreset(motionPreset);
         stridePhaseOffset = Random.Range(0f, 10f);
         CacheVisualRoot();
         CacheRenderers();
@@ -85,6 +117,73 @@ public class CharacterAnimationController : MonoBehaviour
     {
         slimeMotion = slime;
         skeletonMotion = skeleton;
+        if (slime)
+        {
+            ApplyPreset(CharacterAnimationPreset.Slime);
+        }
+        else if (skeleton)
+        {
+            ApplyPreset(CharacterAnimationPreset.Skeleton);
+        }
+    }
+
+    public void ApplyPreset(CharacterAnimationPreset preset)
+    {
+        motionPreset = preset;
+        switch (preset)
+        {
+            case CharacterAnimationPreset.Skeleton:
+                idleBobHeight = 0.025f;
+                idleBobSpeed = 1.9f;
+                idleBreathScale = 0.016f;
+                moveSwayAngle = 7.2f;
+                movePulse = 0.045f;
+                moveSpeed = 8.4f;
+                hurtDuration = 0.22f;
+                deathDuration = 0.82f;
+                attackPoseScale = 0.92f;
+                attackLungeScale = 0.95f;
+                dashStretchScale = 0.85f;
+                hurtKnockbackScale = 0.9f;
+                deathFallScale = 0.9f;
+                slimeMotion = false;
+                skeletonMotion = true;
+                break;
+            case CharacterAnimationPreset.Slime:
+                idleBobHeight = 0.055f;
+                idleBobSpeed = 2.05f;
+                idleBreathScale = 0.062f;
+                moveSwayAngle = 4.4f;
+                movePulse = 0.12f;
+                moveSpeed = 8.1f;
+                hurtDuration = 0.32f;
+                deathDuration = 0.95f;
+                attackPoseScale = 1.18f;
+                attackLungeScale = 0.72f;
+                dashStretchScale = 1.25f;
+                hurtKnockbackScale = 1.22f;
+                deathFallScale = 0.72f;
+                slimeMotion = true;
+                skeletonMotion = false;
+                break;
+            case CharacterAnimationPreset.Player:
+                idleBobHeight = 0.038f;
+                idleBobSpeed = 2.15f;
+                idleBreathScale = 0.03f;
+                moveSwayAngle = 10.5f;
+                movePulse = 0.085f;
+                moveSpeed = 10.8f;
+                hurtDuration = 0.28f;
+                deathDuration = 1.05f;
+                attackPoseScale = 1.08f;
+                attackLungeScale = 1.08f;
+                dashStretchScale = 1.12f;
+                hurtKnockbackScale = 1.08f;
+                deathFallScale = 1f;
+                slimeMotion = false;
+                skeletonMotion = false;
+                break;
+        }
     }
 
     public void PlayIdle()
@@ -242,14 +341,15 @@ public class CharacterAnimationController : MonoBehaviour
         float recover = comboStep == 3 ? 0.16f : comboStep == 2 ? 0.095f : 0.07f;
         float twistSign = comboStep == 2 ? -1f : 1f;
         float sweep = comboStep == 3 ? 62f : comboStep == 2 ? 48f : 28f;
-        float lunge = comboStep == 3 ? 0.24f : comboStep == 2 ? 0.16f : 0.09f;
+        float lunge = (comboStep == 3 ? 0.24f : comboStep == 2 ? 0.16f : 0.09f) * attackLungeScale;
+        float poseScale = attackPoseScale;
 
         yield return AnimatePhase(windup, t =>
         {
             float eased = EaseOutCubic(t);
-            visualRoot.localPosition = startLocalPosition - localDirection * (0.08f + comboStep * 0.025f) * eased + Vector3.down * 0.055f * eased;
-            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-10f * eased, -sweep * 0.42f * twistSign * eased, 8f * twistSign * eased);
-            visualRoot.localScale = Vector3.Lerp(startLocalScale, new Vector3(startLocalScale.x * 1.08f, startLocalScale.y * 0.9f, startLocalScale.z * 1.08f), eased);
+            visualRoot.localPosition = startLocalPosition - localDirection * (0.08f + comboStep * 0.025f) * poseScale * eased + Vector3.down * 0.055f * poseScale * eased;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-10f * poseScale * eased, -sweep * 0.42f * twistSign * poseScale * eased, 8f * twistSign * poseScale * eased);
+            visualRoot.localScale = Vector3.Lerp(startLocalScale, new Vector3(startLocalScale.x * (1f + 0.08f * poseScale), startLocalScale.y * (1f - 0.1f * poseScale), startLocalScale.z * (1f + 0.08f * poseScale)), eased);
         });
 
         if (comboStep == 3)
@@ -267,7 +367,7 @@ public class CharacterAnimationController : MonoBehaviour
             float snap = Mathf.Sin(t * Mathf.PI);
             float travel = EaseOutBack(t);
             visualRoot.localPosition = startLocalPosition + localDirection * lunge * snap + Vector3.up * 0.035f * snap;
-            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(12f * snap, sweep * twistSign * travel, -18f * twistSign * snap);
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(12f * poseScale * snap, sweep * twistSign * poseScale * travel, -18f * twistSign * poseScale * snap);
             visualRoot.localScale = startLocalScale * (1f + (comboStep == 3 ? 0.13f : 0.08f) * snap);
         });
 
@@ -299,7 +399,7 @@ public class CharacterAnimationController : MonoBehaviour
         {
             float squash = EaseOutCubic(t);
             visualRoot.localPosition = startLocalPosition - localDirection * 0.06f * squash + Vector3.down * 0.04f * squash;
-            visualRoot.localScale = new Vector3(startLocalScale.x * (1.15f + 0.05f * squash), startLocalScale.y * (0.78f + 0.04f * squash), startLocalScale.z * 1.18f);
+            visualRoot.localScale = new Vector3(startLocalScale.x * (1f + 0.2f * dashStretchScale), startLocalScale.y * (1f - 0.22f * dashStretchScale + 0.04f * squash), startLocalScale.z * (1f + 0.18f * dashStretchScale));
             visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-10f * squash, 0f, 0f);
         });
 
@@ -307,7 +407,7 @@ public class CharacterAnimationController : MonoBehaviour
         {
             float stretch = Mathf.Sin(t * Mathf.PI);
             visualRoot.localPosition = startLocalPosition + localDirection * 0.1f * stretch + Vector3.up * 0.025f * stretch;
-            visualRoot.localScale = new Vector3(startLocalScale.x * (0.78f + 0.08f * stretch), startLocalScale.y * (1.08f + 0.04f * stretch), startLocalScale.z * (1.38f + 0.08f * stretch));
+            visualRoot.localScale = new Vector3(startLocalScale.x * (1f - 0.22f * dashStretchScale + 0.08f * stretch), startLocalScale.y * (1f + 0.08f * dashStretchScale + 0.04f * stretch), startLocalScale.z * (1f + 0.38f * dashStretchScale + 0.08f * stretch));
             visualRoot.localRotation = startLocalRotation * Quaternion.Euler(8f * stretch, 0f, 0f);
         });
 
@@ -339,8 +439,8 @@ public class CharacterAnimationController : MonoBehaviour
         yield return AnimatePhase(hurtDuration * 0.42f, t =>
         {
             float punch = EaseOutBack(t);
-            visualRoot.localPosition = startLocalPosition + localHit * 0.18f * punch + Vector3.down * 0.045f * punch;
-            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-15f * punch, 0f, 13f * Mathf.Sign(localHit.x + 0.01f) * punch);
+            visualRoot.localPosition = startLocalPosition + localHit * 0.18f * hurtKnockbackScale * punch + Vector3.down * 0.045f * hurtKnockbackScale * punch;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-15f * hurtKnockbackScale * punch, 0f, 13f * Mathf.Sign(localHit.x + 0.01f) * hurtKnockbackScale * punch);
             visualRoot.localScale = new Vector3(startLocalScale.x * 1.08f, startLocalScale.y * 0.88f, startLocalScale.z * 1.05f);
         }, true);
 
@@ -349,7 +449,7 @@ public class CharacterAnimationController : MonoBehaviour
         yield return AnimatePhase(hurtDuration * 0.58f, t =>
         {
             float eased = EaseOutCubic(t);
-            visualRoot.localPosition = Vector3.Lerp(startLocalPosition + localHit * 0.06f, startLocalPosition, eased);
+            visualRoot.localPosition = Vector3.Lerp(startLocalPosition + localHit * 0.06f * hurtKnockbackScale, startLocalPosition, eased);
             visualRoot.localRotation = Quaternion.Slerp(startLocalRotation * Quaternion.Euler(6f, 0f, -5f), startLocalRotation, eased);
             visualRoot.localScale = Vector3.Lerp(startLocalScale * 1.04f, startLocalScale, eased);
         }, true);
@@ -365,16 +465,16 @@ public class CharacterAnimationController : MonoBehaviour
         yield return AnimatePhase(deathDuration * 0.28f, t =>
         {
             float collapse = EaseOutCubic(t);
-            visualRoot.localPosition = startLocalPosition + Vector3.down * 0.08f * collapse;
-            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-18f * collapse, 0f, 24f * collapse);
+            visualRoot.localPosition = startLocalPosition + Vector3.down * 0.08f * deathFallScale * collapse;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-18f * deathFallScale * collapse, 0f, 24f * collapse);
             visualRoot.localScale = new Vector3(startLocalScale.x * (1f + 0.08f * collapse), startLocalScale.y * (1f - 0.18f * collapse), startLocalScale.z * (1f + 0.06f * collapse));
         });
 
         yield return AnimatePhase(deathDuration * 0.48f, t =>
         {
             float fall = EaseInOutCubic(t);
-            visualRoot.localPosition = startLocalPosition + Vector3.down * (0.08f + 0.18f * fall) + Vector3.right * 0.05f * fall;
-            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-18f - 62f * fall, 0f, 24f + 72f * fall);
+            visualRoot.localPosition = startLocalPosition + Vector3.down * (0.08f + 0.18f * deathFallScale * fall) + Vector3.right * 0.05f * deathFallScale * fall;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-18f - 62f * deathFallScale * fall, 0f, 24f + 72f * deathFallScale * fall);
             visualRoot.localScale = Vector3.Lerp(startLocalScale, startLocalScale * 0.74f, fall);
             SetRendererAlpha(1f - 0.35f * fall);
         });
@@ -382,8 +482,8 @@ public class CharacterAnimationController : MonoBehaviour
         yield return AnimatePhase(deathDuration * 0.24f, t =>
         {
             float fade = EaseOutCubic(t);
-            visualRoot.localPosition = startLocalPosition + Vector3.down * (0.26f + 0.08f * fade) + Vector3.right * 0.05f;
-            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-80f, 0f, 96f);
+            visualRoot.localPosition = startLocalPosition + Vector3.down * (0.26f * deathFallScale + 0.08f * fade) + Vector3.right * 0.05f * deathFallScale;
+            visualRoot.localRotation = startLocalRotation * Quaternion.Euler(-80f * deathFallScale, 0f, 96f * deathFallScale);
             visualRoot.localScale = Vector3.Lerp(startLocalScale * 0.74f, startLocalScale * 0.48f, fade);
             SetRendererAlpha(0.65f * (1f - fade));
         });

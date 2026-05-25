@@ -95,3 +95,9 @@
 - QA 场景必须在 BuildNavMesh 前先保存到目标路径，否则 Unity 会按当前临时场景名生成 NavMesh 资产目录，曾产生 `Assets/1111*` 副产物；后续场景构建器应保持“先 SaveScene，再 BuildNavMesh，再 SaveScene”。
 - `StartMenuManager` 的 RuntimeInitialize 仍会在 QA 场景创建对象，但 `Start()` 中禁用组件即可避免暂停 `Time.timeScale`，Play Mode 确认 QA 场景保持 `Time.timeScale=1`。
 - Skeleton 的资源级 Animator 可通过 QA 面板生成 prefab 后验证，运行时模型 `SkeletonEnemy_KayKit_Model` 正确加载 `SkeletonResource`；Slime 当前仍主要依赖程序动画层。
+
+## 动画调参第一轮发现
+
+- 一套全局程序动画参数不足以同时服务主角、Skeleton 和 Slime：Skeleton 已有资源级骨骼动画后，外层程序动画需要更克制；Slime 则需要更夸张的 squash/stretch 才能和骨架敌人拉开差异。
+- 旧场景序列化可能让新增 enum 字段落在 `Custom`，因此运行时需要按组件类型自动推断默认 preset，避免新默认参数在旧场景中不生效。
+- QA 面板只调 Idle/Move 不够，攻击姿态、攻击位移、闪避拉伸、受击重量和死亡倒下强度也需要暴露，否则“爽感”仍需要改代码才能迭代。
