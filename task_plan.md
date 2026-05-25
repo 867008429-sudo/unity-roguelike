@@ -294,6 +294,34 @@
 - 短 Play Mode 烟测确认进入正式场景、开始菜单暂停、退出后 `Time.timeScale = 1`。
 - 尚未完成三段普攻、流派触发、完美闪避的完整实机玩法 QA。
 
+### 新增子任务：程序动画增强第二轮
+
+状态：smoke_verified_pending_gameplay_qa
+
+内容：
+
+- 重做 `CharacterAnimationController` 的程序动画曲线，让 Idle、Move、Attack、Dash、Hurt、Death 都有更明显的节奏和重量。
+- Idle 加入呼吸和轻微浮动，Move 加入身体倾斜、脚步节奏、启动/停止惯性和敌人差异化运动口味。
+- 玩家攻击改为由动画层统一驱动，按 1/2/3 段区分轻击、横扫、重击，避免 `PlayerController` 与动画层同时抢同一个 `visualRoot`。
+- 闪避加入起步压缩、中段拉伸和结束刹车，第三段攻击临时强化拖尾。
+- 受击加入闪白、后仰、短暂失衡，死亡改为倒下/缩放/淡出式程序动画。
+- 骷髅冲锋前接入蓄力压缩，史莱姆吐酸前接入膨胀与回弹，普通追击按 Skeleton/Slime 使用不同摇摆和弹跳风格。
+
+验收标准：
+
+- Unity Console 无项目级编译错误。
+- 进入 Play Mode 后玩家身上存在 `CharacterAnimationController` 与 `PlayerAnimationDriver`。
+- 玩家 Idle/Move/Attack/Dash/Hurt/Death 在实机中比第一轮更有重量和节奏。
+- 骷髅冲锋与史莱姆吐酸前摇可明显区分。
+- 不改变移动、攻击、闪避、受伤、死亡、敌人攻击判定等核心玩法逻辑。
+
+验证记录：
+
+- UnityMCP 脚本刷新编译通过，Console 仅曾出现 MCP 自身 WebSocket warning，无项目脚本 Error。
+- 短 Play Mode 烟测确认 `Application.isPlaying=True`、开始菜单下 `Time.timeScale=0`、玩家动画组件存在。
+- Play Mode 烟测期间 Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
+- 仍缺完整人工玩法 QA：三段普攻观感、闪避爆发、受击/死亡重量、骷髅和史莱姆特殊动作的实机观感。
+
 ## 风险控制规则
 
 - 不直接删除或隐藏已有 UI，除非有新版等价内容并完成验证。

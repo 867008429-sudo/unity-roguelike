@@ -17,6 +17,10 @@ public class EnemyAnimationDriver : MonoBehaviour
         enemyStats = GetComponent<EnemyStats>();
         agent = GetComponent<NavMeshAgent>();
         lastState = enemyAI != null ? enemyAI.currentState : EnemyAI.AIState.Patrol;
+        if (animationController != null && enemyStats != null)
+        {
+            animationController.SetMotionFlavor(enemyStats.enemyType == EnemyStats.EnemyType.Slime, enemyStats.enemyType == EnemyStats.EnemyType.Skeleton);
+        }
     }
 
     private void OnEnable()
@@ -59,6 +63,7 @@ public class EnemyAnimationDriver : MonoBehaviour
 
         Vector3 velocity = agent != null && agent.enabled ? agent.velocity : Vector3.zero;
         velocity.y = 0f;
+        animationController.SetMoveContext(velocity, transform.forward);
         if (state == EnemyAI.AIState.Chase || state == EnemyAI.AIState.Return || velocity.sqrMagnitude > 0.03f)
         {
             animationController.PlayMove();

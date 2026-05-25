@@ -262,3 +262,22 @@
 - 将默认分支改名为 `main`。
 - 已设置 GitHub 远端 `origin = https://github.com/867008429-sudo/unity-roguelike.git`。
 - 已成功推送 `main` 分支，并建立本地 `main` 对 `origin/main` 的 upstream 跟踪。
+
+### 程序动画增强第二轮
+
+- 新建功能分支 `feature/program-animation-feel-pass`，用于集中开发角色程序动画爽感增强。
+- 重写 `CharacterAnimationController` 的动画曲线：
+  - Idle 加入呼吸、轻微浮动和材质根节点的柔和回正。
+  - Move 加入步频、弹跳、身体前倾/侧倾、启动和停止惯性。
+  - Attack 改为蓄力、挥出、回弹三段式曲线，并按 combo 1/2/3 区分轻击、横扫、重击。
+  - Dash 改为起步压缩、中段拉伸、结束刹车回正。
+  - Hurt 加入闪白、后仰、短暂失衡和回正。
+  - Death 改为倒下、收缩、淡出三段式程序动画。
+- `PlayerAnimationDriver` 不再在攻击开始时重复触发 `PlayAttack`，避免和 `PlayerController` 的 combo 时序抢控制；它现在只负责移动上下文、闪避、受击和死亡。
+- `PlayerController` 在 comboStep 计算完成后直接调用 `CharacterAnimationController.PlayAttack(facingDirection, comboStep)`，并移除攻击过程中旧的直接 `visualRoot` 扭动调用；第三段攻击临时强化拖尾。
+- `EnemyAnimationDriver` 根据 `EnemyStats.EnemyType` 设置 Skeleton/Slime 动作口味，让普通追击有不同的摇摆和弹跳。
+- `EnemyAI` 的骷髅冲锋前摇接入 `PlayChargeWindup(...)`，史莱姆吐酸前摇接入 `PlaySpitWindup(...)`。
+- 本地静态检查通过：`CharacterAnimationController.cs`、`PlayerAnimationDriver.cs`、`EnemyAnimationDriver.cs`、`PlayerController.cs`、`EnemyAI.cs` 大括号平衡，新增方法引用可解析。
+- UnityMCP 刷新编译成功；期间仅出现 MCP 自身 WebSocket warning，无项目脚本 Error。
+- 短 Play Mode 烟测：进入后 `Application.isPlaying=True`、开始菜单下 `Time.timeScale=0`、玩家存在 `CharacterAnimationController` 和 `PlayerAnimationDriver`；Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
+- 尚未完成完整实机玩法 QA，需要后续人工确认 Idle/Move/三段攻击/闪避/受击/死亡，以及骷髅冲锋和史莱姆吐酸前摇的实际观感。

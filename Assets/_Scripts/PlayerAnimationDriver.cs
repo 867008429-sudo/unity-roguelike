@@ -7,7 +7,6 @@ public class PlayerAnimationDriver : MonoBehaviour
     private PlayerController playerController;
     private PlayerStats playerStats;
     private CharacterController characterController;
-    private bool wasAttacking;
     private bool wasDodging;
 
     private void Awake()
@@ -43,30 +42,29 @@ public class PlayerAnimationDriver : MonoBehaviour
             return;
         }
 
-        bool isAttacking = playerController.IsAttacking();
         bool isDodging = playerController.IsDodging();
         Vector3 facing = playerController.GetFacingDirection();
-
-        if (isAttacking && !wasAttacking)
-        {
-            animationController.PlayAttack(facing);
-        }
 
         if (isDodging && !wasDodging)
         {
             animationController.PlayDash(facing);
         }
 
-        wasAttacking = isAttacking;
         wasDodging = isDodging;
 
-        if (isAttacking || isDodging)
+        if (isDodging)
         {
             return;
         }
 
         Vector3 velocity = characterController != null ? characterController.velocity : Vector3.zero;
         velocity.y = 0f;
+        animationController.SetMoveContext(velocity, facing);
+        if (playerController.IsAttacking())
+        {
+            return;
+        }
+
         if (velocity.sqrMagnitude > 0.04f)
         {
             animationController.PlayMove();

@@ -28,6 +28,7 @@ public class PlayerController : MonoBehaviour
     private PlayerStats stats;
     private TrailRenderer trailRenderer;
     private Collider[] playerColliders;
+    private CharacterAnimationController animationController;
     private int comboStep;
     private float lastComboTime = -999f;
     private bool isAttacking;
@@ -44,6 +45,7 @@ public class PlayerController : MonoBehaviour
         stats = GetComponent<PlayerStats>();
         trailRenderer = GetComponent<TrailRenderer>();
         EnsureAnimationDriver();
+        animationController = GetComponent<CharacterAnimationController>();
 
         if (trailRenderer == null)
         {
@@ -249,12 +251,16 @@ public class PlayerController : MonoBehaviour
 
         comboStep = (comboStep % 3) + 1;
         lastComboTime = Time.time;
-
-        if (visualRoot != null)
+        if (animationController != null)
         {
-            visualStartLocalPosition = visualRoot.localPosition;
-            visualStartLocalRotation = visualRoot.localRotation;
-            visualStartLocalScale = visualRoot.localScale;
+            animationController.PlayAttack(facingDirection, comboStep);
+        }
+
+        if (comboStep == 3 && trailRenderer != null)
+        {
+            trailRenderer.time = Mathf.Max(trailRenderer.time, 0.22f);
+            trailRenderer.startWidth = Mathf.Max(trailRenderer.startWidth, 0.55f);
+            trailRenderer.enabled = true;
         }
 
         float windup = Mathf.Max(0.02f, attackWindup * (comboStep == 3 ? 1.35f : comboStep == 2 ? 1.1f : 0.92f));
@@ -262,8 +268,6 @@ public class PlayerController : MonoBehaviour
         while (elapsed < windup)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / windup);
-            AnimateAttackWindup(t);
             yield return null;
         }
 
@@ -274,12 +278,14 @@ public class PlayerController : MonoBehaviour
         while (elapsed < recover)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / recover);
-            AnimateAttackRelease(t);
             yield return null;
         }
 
-        ResetAttackVisual();
+        if (!isDodging && trailRenderer != null && comboStep == 3)
+        {
+            trailRenderer.enabled = false;
+        }
+
         isAttacking = false;
     }
 

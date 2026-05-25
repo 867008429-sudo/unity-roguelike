@@ -396,7 +396,7 @@ public class EnemyAI : MonoBehaviour
 
         if (animationController != null)
         {
-            animationController.PlayAttack(direction);
+            animationController.PlayChargeWindup(direction, chargeWindup);
         }
 
         VisualEffectsManager.Instance.ShowAttackWarning(origin, direction, chargeDistance + 0.8f, chargeWindup, false);
@@ -464,6 +464,11 @@ public class EnemyAI : MonoBehaviour
         FaceDirection(direction);
 
         Vector3 targetPoint = playerTransform != null ? playerTransform.position : transform.position + direction * 4f;
+        if (animationController != null)
+        {
+            animationController.PlaySpitWindup(direction, projectileWindup);
+        }
+
         ParticleEffects.Instance.ShowAttackTelegraph(targetPoint, 0.9f, projectileWindup, false);
 
         float elapsed = 0f;
