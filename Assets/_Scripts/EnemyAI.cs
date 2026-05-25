@@ -60,6 +60,7 @@ public class EnemyAI : MonoBehaviour
     private Vector3 lockedAttackOrigin;
     private bool attackDirectionLocked;
     private CharacterAnimationController animationController;
+    private EnemyResourceAnimationDriver resourceAnimationDriver;
 
     private void Awake()
     {
@@ -67,6 +68,7 @@ public class EnemyAI : MonoBehaviour
         stats = GetComponent<EnemyStats>();
         EnsureAnimationDriver();
         animationController = GetComponent<CharacterAnimationController>();
+        resourceAnimationDriver = GetComponent<EnemyResourceAnimationDriver>();
         spawnPoint = transform.position;
         agent.speed = patrolSpeed;
         agent.stoppingDistance = 0.1f;
@@ -306,6 +308,10 @@ public class EnemyAI : MonoBehaviour
             {
                 animationController.PlayAttack(lockedAttackDirection);
             }
+            if (resourceAnimationDriver != null)
+            {
+                resourceAnimationDriver.PlayAttack();
+            }
 
             float telegraphRadius = stats != null && stats.isBoss ? attackRange + 1.2f : attackRange + 0.35f;
             VisualEffectsManager.Instance.ShowAttackWarning(transform.position, lockedAttackDirection, telegraphRadius, attackWindup, stats != null && stats.isBoss);
@@ -398,6 +404,10 @@ public class EnemyAI : MonoBehaviour
         {
             animationController.PlayChargeWindup(direction, chargeWindup);
         }
+        if (resourceAnimationDriver != null)
+        {
+            resourceAnimationDriver.PlayChargeWindup();
+        }
 
         VisualEffectsManager.Instance.ShowAttackWarning(origin, direction, chargeDistance + 0.8f, chargeWindup, false);
 
@@ -467,6 +477,10 @@ public class EnemyAI : MonoBehaviour
         if (animationController != null)
         {
             animationController.PlaySpitWindup(direction, projectileWindup);
+        }
+        if (resourceAnimationDriver != null)
+        {
+            resourceAnimationDriver.PlaySpitWindup();
         }
 
         ParticleEffects.Instance.ShowAttackTelegraph(targetPoint, 0.9f, projectileWindup, false);
@@ -641,6 +655,11 @@ public class EnemyAI : MonoBehaviour
         if (GetComponent<EnemyAnimationDriver>() == null)
         {
             gameObject.AddComponent<EnemyAnimationDriver>();
+        }
+
+        if (GetComponent<EnemyResourceAnimationDriver>() == null)
+        {
+            gameObject.AddComponent<EnemyResourceAnimationDriver>();
         }
     }
 }

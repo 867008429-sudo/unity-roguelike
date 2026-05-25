@@ -307,3 +307,28 @@
 - UnityMCP 刷新编译通过；期间仅出现 MCP 自身 WebSocket warning，无项目脚本 Error。
 - 短 Play Mode 烟测：进入后玩家 `bridge=True`、`model=True`、`animator=True`、`controller=PlayerKnightResource`，Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
 - 当前仍需人工实机 QA，重点看资源级骨骼动画和外层程序动画叠加是否自然，特别是三段攻击和闪避。
+
+### 骷髅手臂僵硬修正
+
+- 用户截图反馈 Skeleton 手臂不自然、僵硬，判断原因为 Skeleton 只有外层 `CharacterAnimationController` 程序动画，模型骨骼本身没有接 Animator，手臂停留在静态姿态。
+- 新增 `Assets/_Scripts/EnemyResourceAnimationDriver.cs`：
+  - 当前只对 `EnemyStats.EnemyType.Skeleton` 启用资源级 Animator。
+  - 运行时查找 `KayKitVisual/SkeletonEnemy_KayKit_Model`。
+  - 自动添加 Animator。
+  - 从 `Resources.Load<RuntimeAnimatorController>(\"Animation/SkeletonResource\")` 加载控制器。
+  - 根据移动、攻击、冲锋前摇、受击、死亡播放骨骼动画。
+- 更新 `EnemyAI`：
+  - 自动补齐 `EnemyResourceAnimationDriver`。
+  - 普通攻击时调用 `resourceAnimationDriver.PlayAttack()`。
+  - 骷髅冲锋前摇调用 `resourceAnimationDriver.PlayChargeWindup()`。
+  - 史莱姆吐酸保留兼容调用，但当前 Slime 不启用资源 Animator。
+- 创建 `Assets/Resources/Animation/SkeletonResource.controller`，状态映射：
+  - `Idle -> Idle_B`
+  - `Move -> Walking_D_Skeletons`
+  - `Attack -> 1H_Melee_Attack_Slice_Horizontal`
+  - `Charge -> 1H_Melee_Attack_Jump_Chop`
+  - `Hurt -> Hit_A`
+  - `Death -> Death_C_Skeletons`
+- UnityMCP 刷新编译通过；期间仅出现 MCP 自身 WebSocket warning，无项目脚本 Error。
+- Play Mode 烟测实例化 `Assets/_Prefabs/KayKit/SkeletonEnemy_KayKit.prefab`：`driver=True`、`model=True`、`animator=True`、`controller=SkeletonResource`；Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
+- 后续需要人工从 Game 视角确认手臂自然度、攻击动作和冲锋前摇是否符合预期。

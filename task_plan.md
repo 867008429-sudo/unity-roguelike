@@ -349,6 +349,33 @@
 - Play Mode 烟测期间 Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
 - 仍缺完整人工玩法 QA：移动循环、三段攻击、闪避、受击和死亡的实际观感与程序动画叠加是否协调。
 
+### 新增子任务：骷髅资源级动画接入
+
+状态：smoke_verified_pending_visual_qa
+
+内容：
+
+- 针对用户截图反馈的“骷髅手臂僵硬”问题，为 Skeleton 敌人接入资源级骨骼动画。
+- 新增 `EnemyResourceAnimationDriver`，Skeleton 运行时查找 `KayKitVisual/SkeletonEnemy_KayKit_Model`，自动添加 Animator 并加载 `Resources/Animation/SkeletonResource`。
+- 创建 `Assets/Resources/Animation/SkeletonResource.controller`，状态包含 Idle、Move、Attack、Charge、Hurt、Death。
+- `EnemyAI.EnsureAnimationDriver()` 自动补齐 `EnemyResourceAnimationDriver`。
+- 普通攻击、骷髅冲锋前摇、受击、死亡会同步触发资源级动画，程序动画层继续作为整体压缩/摇摆叠加。
+
+验收标准：
+
+- Unity Console 无项目级编译错误。
+- Skeleton prefab 实例化后存在 `EnemyResourceAnimationDriver`。
+- `SkeletonEnemy_KayKit_Model` 运行时存在 Animator，并加载 `SkeletonResource`。
+- 骷髅 Idle/Move/Attack/Charge/Hurt/Death 不再停留在僵硬手臂静态姿势。
+- 不改变敌人 AI、攻击判定、伤害和生成逻辑。
+
+验证记录：
+
+- UnityMCP 刷新编译通过，Console 仅曾出现 MCP 自身 WebSocket warning，无项目脚本 Error。
+- Play Mode 烟测实例化 `SkeletonEnemy_KayKit.prefab`，确认 `driver=True`、`model=True`、`animator=True`、`controller=SkeletonResource`。
+- Play Mode 烟测期间 Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
+- 仍缺人工视觉 QA：从游戏视角确认骷髅手臂、攻击、冲锋前摇是否自然。
+
 ## 风险控制规则
 
 - 不直接删除或隐藏已有 UI，除非有新版等价内容并完成验证。
