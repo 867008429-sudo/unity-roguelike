@@ -415,3 +415,57 @@
   - UnityMCP 编译刷新成功；仅出现 MCP 自身 WebSocket warning，无项目脚本 Error。
   - QA_Sandbox Play Mode：生成 Skeleton/Slime 后，反射触发近战、冲锋、吐酸前摇；首次运行时出现一次 `The referenced script (Unknown)`，扫描当前场景及 Skeleton/Slime prefab 未发现 missing script。
   - 清空 Console 后复测冲锋和吐酸前摇，Console Error/Warning 为 0；退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。
+
+### 神秘商店与金币消费系统规划/最小脚本
+- 按用户要求读取 `task_plan.md` 和 `Assets/_Scripts/Interaction/IInteractable.cs`，确认本功能必须遵守“不删减/隐藏现有 UI 和玩法功能、保持原输入语义”。
+- 读取现有交互实现：
+  - `LootChestInteractable`：E-only，适合做商店商品交互参考。
+  - `DestructiblePropInteractable`：支持 E/J/鼠标左键，商店商品不会沿用攻击/鼠标交互。
+  - `PlayerInteractionDetector`：统一选择最高优先级且范围内的 interactable，按 E/J/鼠标触发。
+- 读取现有经济与奖励接口：
+  - `PlayerStats.AddGold()` 会触发 `OnGoldChanged`，但缺少安全扣款方法。
+  - `UIManager` 的祝福/遗物奖励当前是 private choice 表，后续要抽公共 shop reward API，不能让商店脚本依赖私有弹窗流程。
+  - `DamageTextPool.ShowText()` 可复用为“金币不足”短文本飘字。
+- 已新增 `PlayerStats.TrySpendGold(int amount)`，用于金币足够时扣款并触发金币 HUD 更新。
+- 已新增 `Assets/_Scripts/Interaction/ShopItemInteractable.cs`：
+  - 继承 `IInteractable`。
+  - World Space 提示格式为“商品名：价格金币”。
+  - `AllowsAttackInteraction=false`、`AllowsMouseInteraction=false`，仅保留 E 购买。
+  - 金币不足时显示“金币不足”；购买成功后应用当前枚举奖励并销毁或置灰售罄。
+- 本地静态检查：
+  - `PlayerStats.cs` 大括号 47/47。
+  - `ShopItemInteractable.cs` 大括号 24/24。
+- 按用户要求，本轮未进入 Play Mode，先汇报 UIManager 增量方案与商品类设计。
+
+### QA_Sandbox 临时商店摊位
+- 按用户要求读取 `Assets/_Scripts/QA/QASandboxController.cs`，确认 F2 面板中原有 `Gold +100` 按钮仍存在并调用 `playerStats?.AddGold(100)`，本轮未修改该按钮。
+- 读取 `Assets/Scenes/QA_Sandbox.unity` 层级，确认 QA 场景已有玩家、UIManager、GameManager、CombatManager、QA_Sandbox_Controller、敌人根节点和敌人生成点。
+- 在 QA 场景边缘新增根对象 `QA_TemporaryShop_Stand`，位置 `(-8.2, 0, 7.4)`，只影响 QA_Sandbox。
+- 使用 KayKit Dungeon 资源搭建临时商店摊位：
+  - `table_long_broken.fbx` 作为破桌摊位。
+  - `chest_gold.fbx` 作为金币箱。
+  - `candle_triple.fbx`、`coin_stack_small.fbx`、`bottle_A_green.fbx` 作为装饰。
+- 在摊位上放置 3 个 `ShopItemInteractable` 测试商品：
+  - `ShopItem_AttackBlessing`：战士之力，35 金币，`AttackBlessing`。
+  - `ShopItem_HealthPotion`：治疗血瓶，25 金币，`HealthPotion`。
+  - `ShopItem_AssassinSigil`：刺客印记，50 金币，`CritAssassinSigil`。
+- 为支持血瓶商品，`ShopItemRewardType` 新增 `HealthPotion`，购买后调用 `PlayerStats.Heal(50f)`。
+- 已自动保存 `Assets/Scenes/QA_Sandbox.unity`。
+- UnityMCP 刷新编译通过，Console Error 数量为 0。
+- 编辑态检查确认 `QA_TemporaryShop_Stand` 下存在 3 个 `ShopItemInteractable`，且三个商品均为 `AllowsAttackInteraction=False`、`AllowsMouseInteraction=False`，保持 E-only 商店语义。
+
+### 商店交互 Play Mode 修复与 QA
+- 用户手动测试反馈“不行”，截图显示玩家已站在商店摊位上但没有稳定交互提示/购买反馈；后续同类场景交互必须由我进入 Play Mode 做 QA。
+- 修复 `Assets/_Scripts/Interaction/PlayerInteractionDetector.cs`：
+  - `EnsureInstance()` 现在会调用 `RegisterSceneInteractables()`。
+  - 新增场景扫描兜底，查找所有 `MonoBehaviour` 中实现 `IInteractable` 的组件并注册，避免 RuntimeInitialize 清空列表后场景物体漏注册。
+- 修复 `Assets/_Scripts/Interaction/ShopItemInteractable.cs`：
+  - 新增 `Start()` 二次调用 `PlayerInteractionDetector.Register(this)`，进一步防止商品漏注册。
+- QA_Sandbox Play Mode 验证：
+  - `Application.isPlaying=True`，场景为 `QA_Sandbox`。
+  - 商店商品运行时数量为 3，`PlayerInteractionDetector` 注册数量为 3。
+  - 将玩家移动到商品附近后，`FindBestInteractable()` 返回 `ShopItem_HealthPotion`，提示为“治疗血瓶：25金币”。
+  - 金币不足分支：玩家金币 `0 -> 0`，`ShopItem_HealthPotion.CanInteract=True`，未售罄。
+  - 金币充足分支：玩家金币 `100 -> 65`，`ShopItem_AttackBlessing.CanInteract=False`，已售罄不可重复购买。
+  - Console Error 为 0。
+  - 退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。

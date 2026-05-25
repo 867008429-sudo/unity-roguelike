@@ -465,3 +465,32 @@
 - 已将 EnemyAI 近战、冲锋、吐酸和 Boss 蓄力接入统一前摇 helper，包含动作蓄力、方向/落点提示、地面脉冲和恢复段。
 - QA_Sandbox Play Mode 烟测触发近战、冲锋、吐酸前摇后 Console Error/Warning 为 0，退出后 `Time.timeScale=1`。
 - 仍待人工视觉 QA：从游戏视角确认吐酸蓄力、受击回弹和死亡坍缩是否足够清楚、是否需要继续调参。
+
+### 新增子任务：神秘商店场景与金币消费系统
+状态：playmode_verified_pending_visual_tuning
+
+内容：
+- 新增商店商品交互脚本规划与最小实现，商品继承统一 `IInteractable` 接口。
+- 商品靠近时显示 World Space 提示，格式为“商品名：价格金币”。
+- 商品只响应 E 键购买，不响应 J 或鼠标左键，保持宝箱式交互语义。
+- 玩家金币足够时扣除 GOLD、应用祝福/遗物效果并销毁商品或标记售罄。
+- 玩家金币不足时复用世界飘字提示“金币不足”。
+- UIManager 后续只做增量接口：提供商店售价/购买反馈入口与公共奖励应用方法，不删除现有升级、遗物、HUD、暂停或死亡 UI。
+
+验收标准：
+- `ShopItemInteractable` 可挂载到货架商品上，并被 `PlayerInteractionDetector` 选中。
+- E 键购买会正确扣金币，金币 HUD 通过现有 `OnGoldChanged` 自动更新。
+- 不足金币不扣款、不发奖励，并显示短文本提示。
+- 已售商品不可重复购买。
+- 不改变木桶 `E/J/鼠标左键`、宝箱 `E` 的原始输入语义。
+
+验证记录：
+- 已读取 `task_plan.md` 和 `Assets/_Scripts/Interaction/IInteractable.cs`。
+- 已读取现有 `LootChestInteractable`、`DestructiblePropInteractable`、`PlayerInteractionDetector`、`PlayerStats`、`UIManager`、`DamageTextPool` 相关接口。
+- 已新增 `PlayerStats.TrySpendGold(int amount)` 与 `ShopItemInteractable` 最小脚本。
+- 本地静态大括号检查通过：`PlayerStats.cs` 为 47/47，`ShopItemInteractable.cs` 为 24/24。
+- 已在 QA_Sandbox 边缘新增 `QA_TemporaryShop_Stand` 临时商店摊位，包含战士之力、治疗血瓶、刺客印记 3 个测试商品。
+- QA 面板原有 `Gold +100` 按钮保持不变，可用于手动测试金币充足购买分支。
+- 首次人工测试发现商品在玩家脚下但没有稳定交互提示/购买反馈；已修复 `PlayerInteractionDetector` 场景交互物注册时序，并让 `ShopItemInteractable.Start()` 二次注册。
+- 已进入 QA_Sandbox Play Mode 验证：注册商品数 3，最近商品可被 `PlayerInteractionDetector` 聚焦，金币不足分支 `0 -> 0` 且商品仍可交互；金币充足分支 `100 -> 65` 且商品售罄不可重复买。
+- Play Mode 验证后 Console Error 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。

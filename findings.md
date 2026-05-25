@@ -119,3 +119,12 @@
 - `EnemyAI` 原先的近战、骷髅冲锋、史莱姆吐酸、Boss 技能各自散落播放动画和 telegraph，后续扩展 Boss/精英时容易不一致。
 - 第一轮统一后，前摇表现层应遵守：先锁定方向并面向目标，再播放类型化动作蓄力，再显示方向/落点提示和地面脉冲，命中窗口结束后保留短恢复段。
 - 运行时 QA 曾再次出现一次 `The referenced script (Unknown) on this Behaviour is missing!`，但扫描当前 QA 场景及 Skeleton/Slime prefab 均未发现 missing script；清空 Console 后复测冲锋/吐酸前摇未复现。
+
+## 神秘商店与金币消费设计发现
+
+- 现有交互接口 `IInteractable` 已包含商品需要的全部核心字段：提示文本、交互距离、优先级、E/J/鼠标交互许可和 focus 回调。
+- 宝箱 `LootChestInteractable` 是最接近商店商品的模式：E-only、注册到 `PlayerInteractionDetector`、使用 `InteractableHint` 展示 World Space 提示。
+- `PlayerStats` 只有 `AddGold(int amount)`，没有安全扣款方法；商店需要新增 `TrySpendGold(int amount)`，由它统一触发 `OnGoldChanged` 保持 HUD 滚动金币显示。
+- `UIManager` 当前祝福/遗物奖励表封装在 private `UpgradeChoice`、`GenerateUpgradeChoices()`、`GenerateRelicChoices()` 中，商店若要复用同一套奖励，后续应抽公共奖励应用接口，而不是让商品脚本反射或直接调用私有方法。
+- 金币不足提示可直接复用 `DamageTextPool.Instance.ShowText(...)`，已有“完美闪避”等世界短文本用例。
+- Play Mode 复现发现：场景内 interactable 依赖 `OnEnable` 注册时，可能被 `RuntimeInitializeOnLoadMethod(AfterSceneLoad)` 清空列表的时序影响，导致商品在玩家附近但没有稳定 focus。`PlayerInteractionDetector.EnsureInstance()` 需要主动扫描场景内所有 `IInteractable` 兜底注册；新商品也在 `Start()` 再注册一次。

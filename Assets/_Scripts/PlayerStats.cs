@@ -230,6 +230,19 @@ public class PlayerStats : MonoBehaviour
         OnGoldChanged?.Invoke(gold);
     }
 
+    public bool TrySpendGold(int amount)
+    {
+        amount = Mathf.Max(0, amount);
+        if (gold < amount)
+        {
+            return false;
+        }
+
+        gold -= amount;
+        OnGoldChanged?.Invoke(gold);
+        return true;
+    }
+
     private void LevelUp()
     {
         float healthRatio = maxHP > 0f ? currentHP / maxHP : 1f;

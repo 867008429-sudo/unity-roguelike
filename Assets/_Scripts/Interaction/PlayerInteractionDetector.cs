@@ -49,6 +49,7 @@ public class PlayerInteractionDetector : MonoBehaviour
     {
         if (instance != null)
         {
+            RegisterSceneInteractables();
             return;
         }
 
@@ -56,11 +57,26 @@ public class PlayerInteractionDetector : MonoBehaviour
         if (existing != null)
         {
             instance = existing;
+            RegisterSceneInteractables();
             return;
         }
 
         GameObject detectorObject = new GameObject("PlayerInteractionDetector");
         instance = detectorObject.AddComponent<PlayerInteractionDetector>();
+        RegisterSceneInteractables();
+    }
+
+    private static void RegisterSceneInteractables()
+    {
+        MonoBehaviour[] behaviours = FindObjectsOfType<MonoBehaviour>();
+        for (int i = 0; i < behaviours.Length; i++)
+        {
+            IInteractable interactable = behaviours[i] as IInteractable;
+            if (interactable != null && !RegisteredInteractables.Contains(interactable))
+            {
+                RegisteredInteractables.Add(interactable);
+            }
+        }
     }
 
     private void Awake()
