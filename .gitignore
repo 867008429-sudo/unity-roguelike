@@ -1,0 +1,47 @@
+# Unity generated folders
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# User/editor local state
+[Uu]ser[Ss]ettings/
+.vs/
+.vscode/
+.idea/
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.suo
+*.tmp
+*.bak
+*.swp
+*.csproj
+*.unityproj
+*.sln
+*.sln.DotSettings
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Crash and profiler output
+sysinfo.txt
+*.stackdump
+*.raw
+*.snap
+
+# Local reference/download caches kept outside the Unity project import path
+/ReferenceRepos/
+/TempAssets/
+
+# Local automation/cache files
+.plan-attestation
+.planning/
