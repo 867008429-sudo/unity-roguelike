@@ -332,3 +332,19 @@
 - UnityMCP 刷新编译通过；期间仅出现 MCP 自身 WebSocket warning，无项目脚本 Error。
 - Play Mode 烟测实例化 `Assets/_Prefabs/KayKit/SkeletonEnemy_KayKit.prefab`：`driver=True`、`model=True`、`animator=True`、`controller=SkeletonResource`；Console Error/Warning 为 0；退出后 `Application.isPlaying=False`、`Time.timeScale=1`。
 - 后续需要人工从 Game 视角确认手臂自然度、攻击动作和冲锋前摇是否符合预期。
+
+### QA_Sandbox 与动画调参面板
+
+- 新增 `Assets/_Scripts/QA/QASandboxController.cs`，运行时提供 F2 可开关的 QA 面板。
+- 面板支持玩家伤害、治疗、击杀、加金币、强制升级、打开遗物面板、震屏、攻击/闪避/受击/死亡动画触发。
+- 面板支持生成 Skeleton/Slime、选择最后生成敌人、清场、触发敌人攻击/冲锋/吐酸/受击/击杀。
+- 面板支持对当前选中的 `CharacterAnimationController` 实时调整 Idle/Move/Hurt/Death 关键参数。
+- 新增 `Assets/_Scripts/Editor/QASandboxSceneBuilder.cs`，可通过 `QASandboxSceneBuilder.BuildQASandbox()` 重建 `Assets/Scenes/QA_Sandbox.unity`。
+- 生成 `Assets/Scenes/QA_Sandbox.unity` 与 `Assets/Scenes/QA_Sandbox/NavMesh.asset`，QA 场景包含玩家、摄像机、GameManager、CombatManager、UIManager、敌人生成点和 NavMesh。
+- 更新 `StartMenuManager`，让 `QA_Sandbox` 跳过开始菜单暂停逻辑。
+- 处理一次构建副产物：首次 NavMesh 在保存场景前生成，Unity 留下 `Assets/1111*` 临时文件；已清理并修正为先保存 QA 场景再 BuildNavMesh。
+- UnityMCP 编译刷新通过，Console 无项目级 Error/Warning，仅出现过 MCP 自身 WebSocket warning。
+- Play Mode 冒烟：`scene=QA_Sandbox`、`Application.isPlaying=True`、`Time.timeScale=1`、QA 面板存在。
+- Play Mode 冒烟：玩家存在 `CharacterAnimationController`、`PlayerResourceAnimationDriver`，`Player_Knight_Model` 存在 Animator。
+- 通过 QA 面板生成 Skeleton/Slime 后，Skeleton 存在 `EnemyResourceAnimationDriver`、模型 Animator 和 `SkeletonResource` controller；Slime 存在程序动画层。
+- 截图保存到 `Assets/Screenshots/qa_sandbox_smoke.png`；退出 Play Mode 后确认 `Application.isPlaying=False`、`Time.timeScale=1`。

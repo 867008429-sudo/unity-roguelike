@@ -51,7 +51,8 @@ public class StartMenuManager : MonoBehaviour
 
     private void Start()
     {
-        if (SceneManager.GetActiveScene().name == "SampleScene")
+        string sceneName = SceneManager.GetActiveScene().name;
+        if (sceneName == "SampleScene" || sceneName == "QA_Sandbox")
         {
             enabled = false;
             return;

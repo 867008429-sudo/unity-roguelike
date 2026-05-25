@@ -212,7 +212,7 @@
 
 ### 阶段 6：QA 场景与 Debug 面板
 
-状态：pending
+状态：in_progress
 
 目标：
 
@@ -389,3 +389,22 @@
 | 错误 | 尝试次数 | 解决方案 |
 |---|---:|---|
 | 未找到 `Assets/Docs/2D_Roguelike_Game_Design_Document.md` | 1 | 已记录到 `findings.md`，后续确认是否需要重新生成或恢复 |
+
+### 新增子任务：QA_Sandbox 与动画调参面板
+
+状态：smoke_verified
+
+内容：
+- 新增独立 QA 场景 `Assets/Scenes/QA_Sandbox.unity`，包含玩家、摄像机、GameManager、CombatManager、UIManager、敌人生成点和 NavMesh。
+- 新增运行时 `QASandboxController`，提供 F2 开关的 OnGUI 调试面板。
+- 面板支持玩家伤害/治疗/击杀/加金币/升级/遗物面板/震屏/攻击/闪避/受击/死亡动画触发。
+- 面板支持生成 Skeleton/Slime、选择最后敌人、清场、敌人攻击/冲锋/吐酸/受击/击杀测试。
+- 面板支持对当前选中的 `CharacterAnimationController` 实时调整 Idle、Move、Hurt、Death 关键参数。
+- `StartMenuManager` 已跳过 `QA_Sandbox`，避免 QA 场景进入时被开始菜单暂停。
+
+验收记录：
+- UnityMCP 刷新编译通过；Console 无项目级 Error/Warning，仅曾出现 MCP 自身 WebSocket warning。
+- Play Mode 冒烟确认 `scene=QA_Sandbox`、`Application.isPlaying=True`、`Time.timeScale=1`、QA 面板存在。
+- Play Mode 冒烟确认玩家存在 `CharacterAnimationController`、`PlayerResourceAnimationDriver`，`Player_Knight_Model` 存在 Animator。
+- 通过 QA 面板生成 Skeleton 和 Slime 后，Skeleton 存在 `EnemyResourceAnimationDriver`、模型 Animator 和 `SkeletonResource` controller；Slime 存在程序动画层。
+- 截图记录：`Assets/Screenshots/qa_sandbox_smoke.png`。
