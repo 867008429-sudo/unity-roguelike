@@ -13,6 +13,14 @@ public class EnemyAI : MonoBehaviour
         Dead
     }
 
+    private enum WindupCueType
+    {
+        Melee,
+        Charge,
+        Projectile,
+        Nova
+    }
+
     public AIState currentState = AIState.Patrol;
     public float moveSpeed = 3f;
     public float patrolSpeed = 1.5f;
@@ -24,6 +32,7 @@ public class EnemyAI : MonoBehaviour
     public float patrolPause = 1f;
     public float detectionInterval = 0.5f;
     public float attackWindup = 0.3f;
+    public float attackRecoveryDuration = 0.12f;
     public float attackConeAngle = 105f;
     public float attackVisualLength = 1.8f;
     public float attackVisualWidth = 0.55f;
@@ -33,8 +42,11 @@ public class EnemyAI : MonoBehaviour
     public float chargeWindup = 0.55f;
     public float chargeDistance = 4.2f;
     public float chargeDuration = 0.22f;
+    public float chargeRecoveryDuration = 0.22f;
     public float chargeDamageMultiplier = 1.35f;
     public float projectileWindup = 0.42f;
+    public float projectileRecoveryDuration = 0.18f;
+    public float projectileDirectionWarningLength = 2.8f;
     public float projectileSpeed = 8f;
     public float projectileDamageMultiplier = 1.05f;
     public bool useRandomPatrol;
@@ -304,17 +316,8 @@ public class EnemyAI : MonoBehaviour
         {
             lastAttackTime = Time.time;
             LockAttackDirection();
-            if (animationController != null)
-            {
-                animationController.PlayAttack(lockedAttackDirection);
-            }
-            if (resourceAnimationDriver != null)
-            {
-                resourceAnimationDriver.PlayAttack();
-            }
-
             float telegraphRadius = stats != null && stats.isBoss ? attackRange + 1.2f : attackRange + 0.35f;
-            VisualEffectsManager.Instance.ShowAttackWarning(transform.position, lockedAttackDirection, telegraphRadius, attackWindup, stats != null && stats.isBoss);
+            ShowReadableWindup(WindupCueType.Melee, transform.position, lockedAttackDirection, attackWindup, telegraphRadius, false, Vector3.zero, 0f);
             StartCoroutine(AttackDelayed(lockedAttackDirection, lockedAttackOrigin));
         }
     }
@@ -381,6 +384,7 @@ public class EnemyAI : MonoBehaviour
             }
         }
 
+        yield return new WaitForSeconds(attackRecoveryDuration);
         attackDirectionLocked = false;
     }
 
@@ -400,16 +404,7 @@ public class EnemyAI : MonoBehaviour
         direction.Normalize();
         FaceDirection(direction);
 
-        if (animationController != null)
-        {
-            animationController.PlayChargeWindup(direction, chargeWindup);
-        }
-        if (resourceAnimationDriver != null)
-        {
-            resourceAnimationDriver.PlayChargeWindup();
-        }
-
-        VisualEffectsManager.Instance.ShowAttackWarning(origin, direction, chargeDistance + 0.8f, chargeWindup, false);
+        ShowReadableWindup(WindupCueType.Charge, origin, direction, chargeWindup, chargeDistance + 0.8f, false, Vector3.zero, 0f);
 
         float elapsed = 0f;
         while (elapsed < chargeWindup)
@@ -450,7 +445,7 @@ public class EnemyAI : MonoBehaviour
             VisualEffectsManager.Instance.PlayHitBurst(transform.position + Vector3.up * 0.3f, new Color(0.95f, 0.75f, 0.45f, 1f));
         }
 
-        yield return new WaitForSeconds(0.18f);
+        yield return new WaitForSeconds(chargeRecoveryDuration);
         specialInProgress = false;
         if (currentState != AIState.Dead)
         {
@@ -474,16 +469,7 @@ public class EnemyAI : MonoBehaviour
         FaceDirection(direction);
 
         Vector3 targetPoint = playerTransform != null ? playerTransform.position : transform.position + direction * 4f;
-        if (animationController != null)
-        {
-            animationController.PlaySpitWindup(direction, projectileWindup);
-        }
-        if (resourceAnimationDriver != null)
-        {
-            resourceAnimationDriver.PlaySpitWindup();
-        }
-
-        ParticleEffects.Instance.ShowAttackTelegraph(targetPoint, 0.9f, projectileWindup, false);
+        ShowReadableWindup(WindupCueType.Projectile, transform.position, direction, projectileWindup, projectileDirectionWarningLength, true, targetPoint, 0.9f);
 
         float elapsed = 0f;
         while (elapsed < projectileWindup)
@@ -503,7 +489,7 @@ public class EnemyAI : MonoBehaviour
             }
         }
 
-        yield return new WaitForSeconds(0.15f);
+        yield return new WaitForSeconds(projectileRecoveryDuration);
         specialInProgress = false;
         if (currentState != AIState.Dead)
         {
@@ -518,7 +504,15 @@ public class EnemyAI : MonoBehaviour
         Vector3 targetPosition = playerTransform != null ? playerTransform.position : transform.position;
         float castTime = 0.7f;
         float impactRadius = 2.3f;
-        ParticleEffects.Instance.ShowAttackTelegraph(targetPosition, impactRadius, castTime, true);
+        Vector3 direction = targetPosition - transform.position;
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.001f)
+        {
+            direction = transform.forward;
+        }
+
+        direction.Normalize();
+        ShowReadableWindup(WindupCueType.Charge, transform.position, direction, castTime, 3.6f, true, targetPosition, impactRadius);
         yield return new WaitForSeconds(castTime);
 
         if (stats != null && !stats.IsDead())
@@ -539,7 +533,7 @@ public class EnemyAI : MonoBehaviour
             }
         }
 
-        yield return new WaitForSeconds(0.25f);
+        yield return new WaitForSeconds(chargeRecoveryDuration);
         specialInProgress = false;
         if (currentState != AIState.Dead)
         {
@@ -556,6 +550,16 @@ public class EnemyAI : MonoBehaviour
         for (int i = 0; i < radii.Length; i++)
         {
             float castTime = 0.45f;
+            Vector3 direction = playerTransform != null ? playerTransform.position - transform.position : transform.forward;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.001f)
+            {
+                direction = transform.forward;
+            }
+
+            direction.Normalize();
+            PlayWindupAnimation(WindupCueType.Nova, direction, castTime);
+            PlayWindupPulse(WindupCueType.Nova, transform.position, castTime, radii[i]);
             ParticleEffects.Instance.ShowAttackTelegraph(transform.position, radii[i], castTime, true);
             yield return new WaitForSeconds(castTime);
 
@@ -571,7 +575,7 @@ public class EnemyAI : MonoBehaviour
                 }
             }
 
-            yield return new WaitForSeconds(0.15f);
+            yield return new WaitForSeconds(projectileRecoveryDuration);
         }
 
         specialInProgress = false;
@@ -635,6 +639,106 @@ public class EnemyAI : MonoBehaviour
         lockedAttackDirection.Normalize();
         attackDirectionLocked = true;
         FaceDirection(lockedAttackDirection);
+    }
+
+    private void ShowReadableWindup(WindupCueType cueType, Vector3 origin, Vector3 direction, float duration, float directionWarningLength, bool showImpactTelegraph, Vector3 impactPoint, float impactRadius)
+    {
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.001f)
+        {
+            direction = transform.forward;
+        }
+
+        direction.Normalize();
+        FaceDirection(direction);
+        PlayWindupAnimation(cueType, direction, duration);
+        PlayWindupPulse(cueType, origin, duration, directionWarningLength);
+
+        if (directionWarningLength > 0f && VisualEffectsManager.Instance != null)
+        {
+            VisualEffectsManager.Instance.ShowAttackWarning(origin, direction, directionWarningLength, duration, stats != null && stats.isBoss);
+        }
+
+        if (showImpactTelegraph)
+        {
+            ParticleEffects.Instance.ShowAttackTelegraph(impactPoint, impactRadius, duration, stats != null && stats.isBoss);
+        }
+    }
+
+    private void PlayWindupAnimation(WindupCueType cueType, Vector3 direction, float duration)
+    {
+        if (animationController != null)
+        {
+            switch (cueType)
+            {
+                case WindupCueType.Charge:
+                    animationController.PlayChargeWindup(direction, duration);
+                    break;
+                case WindupCueType.Projectile:
+                case WindupCueType.Nova:
+                    animationController.PlaySpitWindup(direction, duration);
+                    break;
+                case WindupCueType.Melee:
+                default:
+                    animationController.PlayAttack(direction);
+                    break;
+            }
+        }
+
+        if (resourceAnimationDriver != null)
+        {
+            switch (cueType)
+            {
+                case WindupCueType.Charge:
+                    resourceAnimationDriver.PlayChargeWindup();
+                    break;
+                case WindupCueType.Projectile:
+                case WindupCueType.Nova:
+                    resourceAnimationDriver.PlaySpitWindup();
+                    break;
+                case WindupCueType.Melee:
+                default:
+                    resourceAnimationDriver.PlayAttack();
+                    break;
+            }
+        }
+    }
+
+    private void PlayWindupPulse(WindupCueType cueType, Vector3 origin, float duration, float threatRadius)
+    {
+        if (VisualEffectsManager.Instance == null)
+        {
+            return;
+        }
+
+        Color color;
+        switch (cueType)
+        {
+            case WindupCueType.Charge:
+                color = new Color(1f, 0.62f, 0.18f, 0.52f);
+                break;
+            case WindupCueType.Projectile:
+            case WindupCueType.Nova:
+                color = new Color(0.35f, 1f, 0.28f, 0.46f);
+                break;
+            case WindupCueType.Melee:
+            default:
+                color = new Color(1f, 0.12f, 0.04f, 0.42f);
+                break;
+        }
+
+        if (stats != null && stats.isElite)
+        {
+            color = Color.Lerp(color, new Color(1f, 0.65f, 0.1f, color.a), 0.45f);
+        }
+
+        if (stats != null && stats.isBoss)
+        {
+            color = Color.Lerp(color, new Color(0.9f, 0.2f, 1f, color.a), 0.55f);
+        }
+
+        float radius = Mathf.Clamp(threatRadius * 0.45f, 0.85f, stats != null && stats.isBoss ? 2.6f : 1.55f);
+        VisualEffectsManager.Instance.PlayGroundPulse(origin, color, radius, Mathf.Clamp(duration, 0.18f, 0.55f));
     }
 
     private Vector3 ClampToArena(Vector3 position)

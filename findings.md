@@ -107,3 +107,15 @@
 - Slime 当前没有资源级 Animator，仍适合先用 `CharacterAnimationController` 做软体程序动画；吐酸、受击、死亡需要和 Skeleton 的骨骼动画明显拉开。
 - `EnemyStats.Die()` 原先在 `OnDeath` 后立刻调用 `GameFeelVFXManager.HideLiveEnemy(...)`，会导致 Slime 的程序死亡动画刚触发就被隐藏；Slime 需要延迟隐藏，同时先禁用碰撞和 NavMeshAgent，避免尸体继续阻挡或寻路。
 - QA_Sandbox 已经具备生成 Slime、触发 Spit、Enemy Hurt、Kill Selected Enemy 的入口，适合作为敌人动作第二轮的快速验证场景。
+
+## Slime 资源级动画盘点
+
+- 当前项目只有 `Assets/_Prefabs/KayKit/SlimeEnemy_KayKitStyle.prefab` 和 `KayKit_Slime_Gel.mat` 与 Slime 直接相关；Slime prefab 是基础 Mesh/材质拼装体，不是带骨骼的模型资源。
+- Unity AssetDatabase 盘点结果：当前可见 `AnimationClip` 中 Slime/Blob/Gel 相关数量为 0；`Model` 中 Slime/Blob/Gel/Monster 相关数量为 0。
+- 结论：当前没有可绑定到 Slime 的资源级骨骼动画。后续若导入 Slime FBX/anim，可复用 `EnemyResourceAnimationDriver` 的模式新增 Slime controller；在此之前继续用程序动画做软体动作更合理。
+
+## 敌人攻击前摇规范第一轮发现
+
+- `EnemyAI` 原先的近战、骷髅冲锋、史莱姆吐酸、Boss 技能各自散落播放动画和 telegraph，后续扩展 Boss/精英时容易不一致。
+- 第一轮统一后，前摇表现层应遵守：先锁定方向并面向目标，再播放类型化动作蓄力，再显示方向/落点提示和地面脉冲，命中窗口结束后保留短恢复段。
+- 运行时 QA 曾再次出现一次 `The referenced script (Unknown) on this Behaviour is missing!`，但扫描当前 QA 场景及 Skeleton/Slime prefab 均未发现 missing script；清空 Console 后复测冲锋/吐酸前摇未复现。

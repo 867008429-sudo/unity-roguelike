@@ -397,3 +397,21 @@
   - QA_Sandbox Play Mode：生成 Slime 后确认 `preset=Slime`、`slimeMotion=True`，触发吐酸和受击无 Console Error/Warning。
   - QA_Sandbox Play Mode：击杀 Slime 后确认进入 Death 状态、延迟隐藏并最终销毁；清空 Console 后复测 Error/Warning 为 0；退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。
   - 曾出现一次 `The referenced script (Unknown) on this Behaviour is missing!`，随后扫描当前 QA 场景未发现 missing script，对同一 Slime 死亡流程清空 Console 后复测未复现。
+
+### 敌人攻击前摇统一规范第一轮
+- 按用户要求顺便盘点 Slime 资源级动画：
+  - `rg` 只找到 `SlimeEnemy_KayKitStyle.prefab` 与 `KayKit_Slime_Gel.mat`。
+  - Unity AssetDatabase 查询：`AnimationClip` 总数 10，Slime/Blob/Gel 相关 0；`Model` 总数 460，Slime/Blob/Gel/Monster 相关 0。
+  - 结论：当前没有 Slime 资源级骨骼动画可绑定；现有 Slime 是基础 Mesh 拼装体，继续使用程序动画最稳。
+- 更新 `Assets/_Scripts/EnemyAI.cs`：
+  - 新增 `WindupCueType`，把 Melee、Charge、Projectile、Nova 的表现前摇归到同一套 helper。
+  - 新增普通攻击、冲锋、投射物的恢复段参数：`attackRecoveryDuration`、`chargeRecoveryDuration`、`projectileRecoveryDuration`。
+  - 普通近战现在通过统一 helper 播放攻击动作、红色地面脉冲和方向提示，再进入命中窗口和恢复段。
+  - 骷髅冲锋通过统一 helper 播放冲锋蓄力、橙色脉冲和方向提示，再进入冲刺和恢复段。
+  - 史莱姆吐酸通过统一 helper 播放吐酸蓄力、绿色脉冲、方向提示和目标落点提示，再发射弹体并恢复。
+  - Boss 骷髅冲锋和 Slime Nova 也接入同一套动作/脉冲提示逻辑，先统一规范，后续再补专属资源级动作。
+- 验证：
+  - 本地静态检查通过：`EnemyAI.cs` 大括号平衡。
+  - UnityMCP 编译刷新成功；仅出现 MCP 自身 WebSocket warning，无项目脚本 Error。
+  - QA_Sandbox Play Mode：生成 Skeleton/Slime 后，反射触发近战、冲锋、吐酸前摇；首次运行时出现一次 `The referenced script (Unknown)`，扫描当前场景及 Skeleton/Slime prefab 未发现 missing script。
+  - 清空 Console 后复测冲锋和吐酸前摇，Console Error/Warning 为 0；退出 Play Mode 后 `Application.isPlaying=False`、`Time.timeScale=1`。
